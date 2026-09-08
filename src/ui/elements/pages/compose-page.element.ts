@@ -217,8 +217,8 @@ export const ComposePage = defineElement()({
         const recentIdiomIds = computeRecentIdiomIds(database);
         const sharedComponentMalaphors = findMalaphorsSharingComponents(
             {
-componentIdiomIds: attachedIdiomIds
-},
+                componentIdiomIds: attachedIdiomIds,
+            },
             database.malaphors,
         );
 
@@ -255,14 +255,15 @@ componentIdiomIds: attachedIdiomIds
             }
             const collision = checkForCollision(
                 {
-text, componentIdiomIds: attachedIdiomIds
-},
+                    text,
+                    componentIdiomIds: attachedIdiomIds,
+                },
                 database.malaphors,
             );
             if (collision) {
                 updateState({
-collisionWarning: collision
-});
+                    collisionWarning: collision,
+                });
                 return;
             }
             performSave();
@@ -435,8 +436,8 @@ collisionWarning: collision
                     ? html`
                           <p class="shared-components">
                               Also used in:
-                              ${sharedComponentMalaphors.map(
-                                  (malaphor, index) => { return html`
+                              ${sharedComponentMalaphors.map((malaphor, index) => {
+                                  return html`
                                       ${index > 0 ? ', ' : ''}
                                       <a
                                           href=${router.createRouteUrl({
@@ -445,8 +446,8 @@ collisionWarning: collision
                                       >
                                           ${malaphor.text}
                                       </a>
-                                  `; },
-                              )}
+                                  `;
+                              })}
                           </p>
                       `
                     : ''}

@@ -1,4 +1,5 @@
-import {css, defineElement, html} from 'element-vir';
+import {css, defineElement, html, listen} from 'element-vir';
+import {idiomDetailRoute, router} from '../../../router.js';
 
 export type GlossLine = {
     idiomId: string;
@@ -12,7 +13,11 @@ export type GlossLine = {
  * manuscript gloss — smaller annotation, hairline rule, hanging indent — not as pills in a row.
  * Reused in list rows, detail views, and the compose preview.
  */
-export const IdiomGloss = defineElement<{lines: readonly GlossLine[]}>()({
+export const IdiomGloss = defineElement<{
+    lines: readonly GlossLine[];
+    /** Set on the detail view, where each line is tappable through to `/idiom/:id` (§6). */
+    linkToIdioms?: boolean;
+}>()({
     tagName: 'idiom-gloss',
     styles: css`
         :host {
@@ -36,14 +41,37 @@ export const IdiomGloss = defineElement<{lines: readonly GlossLine[]}>()({
         .gloss-line.highlighted {
             font-weight: 500;
         }
+
+        a.gloss-line {
+            text-decoration: none;
+        }
     `,
     render({inputs}) {
         return html`
             ${inputs.lines.map((line) => {
+                const className = `gloss-line ${line.highlighted ? 'highlighted' : ''}`;
+                if (!inputs.linkToIdioms) {
+                    return html`
+                        <div class=${className}>${line.text}</div>
+                    `;
+                }
                 return html`
-                    <div class="gloss-line ${line.highlighted ? 'highlighted' : ''}">
+                    <a
+                        class=${className}
+                        href=${router.createRouteUrl({
+                            paths: idiomDetailRoute(line.idiomId),
+                        }).url}
+                        ${listen('click', (event) => {
+                            router.setRouteOnDirectNavigation(
+                                {
+                                    paths: idiomDetailRoute(line.idiomId),
+                                },
+                                event as MouseEvent,
+                            );
+                        })}
+                    >
                         ${line.text}
-                    </div>
+                    </a>
                 `;
             })}
         `;
