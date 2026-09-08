@@ -1,12 +1,21 @@
 import {createUuidV4, type Uuid} from '@augment-vir/common';
-import {getNowInIsoString} from 'date-vir';
+import {createFullDateInUserTimezone, getNowInIsoString, toFormattedString} from 'date-vir';
 import {css, defineElement, html, listen} from 'element-vir';
+import {
+    checkForCollision,
+    findMalaphorsSharingComponents,
+    type CollisionCheck,
+} from '../../../data/collisions.js';
 import type {CodexDatabase, Idiom, Malaphor} from '../../../data/shapes.js';
 import {databaseShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
 import {codexRoute, malaphorDetailRoute, router} from '../../../router.js';
 import {IdiomChip} from '../malaphor/idiom-chip.element.js';
 import {IdiomTypeahead} from '../malaphor/idiom-typeahead.element.js';
+
+function formatAddedDate(isoString: string): string {
+    return toFormattedString(createFullDateInUserTimezone(isoString), 'd MMMM yyyy');
+}
 
 function computeRecentIdiomIds(database: CodexDatabase): string[] {
     const lastUsedAt = new Map<string, string>();
@@ -118,6 +127,49 @@ export const ComposePage = defineElement()({
             opacity: 0.5;
             cursor: default;
         }
+
+        .collision-warning {
+            border: 1px solid var(--minium);
+            border-radius: var(--border-radius);
+            padding: 16px;
+        }
+
+        .collision-warning .warning-heading {
+            color: var(--minium);
+            font-weight: 500;
+            margin: 0 0 8px;
+        }
+
+        .collision-warning .warning-detail {
+            font-size: var(--font-size-gloss);
+            color: var(--iron-faded);
+            margin: 0 0 16px;
+        }
+
+        .collision-warning .warning-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .collision-warning button {
+            border: none;
+            background: none;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-body);
+            color: var(--iron-gall);
+            cursor: pointer;
+            padding: 8px 0;
+        }
+
+        .shared-components {
+            margin-top: 16px;
+            color: var(--iron-faded);
+            font-size: var(--font-size-gloss);
+        }
+
+        .shared-components a {
+            color: var(--terre-verte);
+        }
     `,
     state(): {
         database: CodexDatabase;
@@ -125,6 +177,7 @@ export const ComposePage = defineElement()({
         malaphorText: string;
         notes: string;
         attachedIdiomIds: Uuid[];
+        collisionWarning: CollisionCheck | undefined;
     } {
         return {
             database: storage.get.codex() ?? databaseShape.default,
@@ -132,6 +185,7 @@ export const ComposePage = defineElement()({
             malaphorText: '',
             notes: '',
             attachedIdiomIds: [],
+            collisionWarning: undefined,
         };
     },
     init({updateState}) {
@@ -161,8 +215,14 @@ export const ComposePage = defineElement()({
             .map((id) => idiomsById.get(id))
             .filter((idiom): idiom is Idiom => idiom !== undefined);
         const recentIdiomIds = computeRecentIdiomIds(database);
+        const sharedComponentMalaphors = findMalaphorsSharingComponents(
+            {
+componentIdiomIds: attachedIdiomIds
+},
+            database.malaphors,
+        );
 
-        function saveMalaphor() {
+        function performSave() {
             const text = malaphorText.trim();
             if (!text) {
                 return;
@@ -186,6 +246,26 @@ export const ComposePage = defineElement()({
             router.setRoute({
                 paths: malaphorDetailRoute(newMalaphor.id),
             });
+        }
+
+        function attemptSave() {
+            const text = malaphorText.trim();
+            if (!text) {
+                return;
+            }
+            const collision = checkForCollision(
+                {
+text, componentIdiomIds: attachedIdiomIds
+},
+                database.malaphors,
+            );
+            if (collision) {
+                updateState({
+collisionWarning: collision
+});
+                return;
+            }
+            performSave();
         }
 
         return html`
@@ -217,6 +297,7 @@ export const ComposePage = defineElement()({
                             textarea.style.height = `${textarea.scrollHeight}px`;
                             updateState({
                                 malaphorText: textarea.value,
+                                collisionWarning: undefined,
                             });
                         })}
                     ></textarea>
@@ -235,6 +316,7 @@ export const ComposePage = defineElement()({
                                             attachedIdiomIds: attachedIdiomIds.filter(
                                                 (id) => id !== idiom.id,
                                             ),
+                                            collisionWarning: undefined,
                                         });
                                     })}
                                 ></${IdiomChip}>
@@ -252,6 +334,7 @@ export const ComposePage = defineElement()({
                                     ...attachedIdiomIds,
                                     event.detail as Uuid,
                                 ],
+                                collisionWarning: undefined,
                             });
                         })}
                         ${listen(IdiomTypeahead.events.createAndAttach, (event) => {
@@ -276,6 +359,7 @@ export const ComposePage = defineElement()({
                                     ...attachedIdiomIds,
                                     newIdiom.id,
                                 ],
+                                collisionWarning: undefined,
                             });
                         })}
                     ></${IdiomTypeahead}>
@@ -301,14 +385,71 @@ export const ComposePage = defineElement()({
                     ></textarea>
                 </div>
 
-                <button
-                    type="button"
-                    class="save-button"
-                    ?disabled=${!malaphorText.trim()}
-                    ${listen('click', saveMalaphor)}
-                >
-                    Save malaphor
-                </button>
+                ${state.collisionWarning
+                    ? html`
+                          <div class="collision-warning">
+                              <p class="warning-heading">
+                                  ${state.collisionWarning.type === 'exact-duplicate'
+                                      ? 'You already have this one.'
+                                      : "You've blended these two before."}
+                              </p>
+                              <p class="warning-detail">
+                                  "${state.collisionWarning.matchedMalaphor.text}" — added
+                                  ${formatAddedDate(
+                                      state.collisionWarning.matchedMalaphor.createdAt,
+                                  )}
+                              </p>
+                              <div class="warning-actions">
+                                  <button
+                                      type="button"
+                                      ${listen('click', () => {
+                                          if (!state.collisionWarning) {
+                                              return;
+                                          }
+                                          router.setRoute({
+                                              paths: malaphorDetailRoute(
+                                                  state.collisionWarning.matchedMalaphor.id,
+                                              ),
+                                          });
+                                      })}
+                                  >
+                                      View it
+                                  </button>
+                                  <button type="button" ${listen('click', performSave)}>
+                                      Save anyway
+                                  </button>
+                              </div>
+                          </div>
+                      `
+                    : html`
+                          <button
+                              type="button"
+                              class="save-button"
+                              ?disabled=${!malaphorText.trim()}
+                              ${listen('click', attemptSave)}
+                          >
+                              Save malaphor
+                          </button>
+                      `}
+                ${sharedComponentMalaphors.length
+                    ? html`
+                          <p class="shared-components">
+                              Also used in:
+                              ${sharedComponentMalaphors.map(
+                                  (malaphor, index) => { return html`
+                                      ${index > 0 ? ', ' : ''}
+                                      <a
+                                          href=${router.createRouteUrl({
+                                              paths: malaphorDetailRoute(malaphor.id),
+                                          }).url}
+                                      >
+                                          ${malaphor.text}
+                                      </a>
+                                  `; },
+                              )}
+                          </p>
+                      `
+                    : ''}
             </div>
         `;
     },
