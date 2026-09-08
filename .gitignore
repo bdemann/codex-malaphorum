@@ -11,3 +11,5 @@ generated-config-*
 graphics/
 node_modules/
 tsconfig.tsbuildinfo
+# Local Netlify folder
+.netlify

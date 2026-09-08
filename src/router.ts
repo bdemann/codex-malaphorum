@@ -25,17 +25,26 @@ export type CodexPaths = typeof pathTree.PathsType;
  * (§9 Keep import).
  */
 export type CodexSearch = Readonly<{filter?: readonly string[]}>;
-export type CodexRoute = FullSpaRoute<CodexPaths, CodexSearch, undefined>;
+export type CodexRoute = FullSpaRoute<CodexPaths, CodexSearch | undefined, undefined>;
 
-export const router = new SpaRouter<CodexPaths, CodexSearch, undefined>({
+export const router = new SpaRouter<CodexPaths, CodexSearch | undefined, undefined>({
     sanitizeRoute(rawRoute) {
         return {
             paths: pathTree.sanitizePaths(rawRoute.paths),
+            /**
+             * Must be `undefined`, not `{}`, when there's no filter: `sanitizeRoute`'s output is
+             * deep-equal-compared against the raw parsed route (which has `search: undefined` for a
+             * plain URL with no query string) to decide whether the route actually changed. A stray
+             * `{}` here makes every navigation look "sanitized," which forces a second, no-op
+             * `setRoute` call that never dispatches a route-change event -- so the URL updates but
+             * the app never re-renders. Also matches `CodexSearch`'s `filter` being optional rather
+             * than required with a default `[]`.
+             */
             search: rawRoute.search?.filter
                 ? {
                       filter: rawRoute.search.filter,
                   }
-                : {},
+                : undefined,
             hash: undefined,
         };
     },

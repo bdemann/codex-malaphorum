@@ -111,7 +111,7 @@ export const CodexPage = defineElement()({
             searchQuery: '',
             sortMode: 'newest',
             /** Lands filtered when arriving from a Keep import via `/?filter=untagged` (§9). */
-            untaggedOnly: Boolean(router.readCurrentRoute().search.filter?.includes('untagged')),
+            untaggedOnly: Boolean(router.readCurrentRoute().search?.filter?.includes('untagged')),
             removeStorageListener: undefined,
         };
     },
