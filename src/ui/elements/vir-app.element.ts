@@ -1,4 +1,5 @@
 import {css, defineElement, html, listen} from 'element-vir';
+import {storage} from '../../data/storage.js';
 import {type CodexPaths, type CodexRoute, composeRoute, router} from '../../router.js';
 import {BottomNav} from './nav/bottom-nav.element.js';
 import {FabButton} from './nav/fab-button.element.js';
@@ -60,14 +61,30 @@ export const VirApp = defineElement()({
             flex: 1;
             overflow-y: auto;
         }
+
+        .corrupt-data-banner {
+            padding: 12px 20px;
+            background-color: var(--vellum-deep);
+            border-bottom: 1px solid var(--iron-faded);
+            color: var(--iron-gall);
+            font-size: var(--font-size-gloss);
+        }
     `,
     state(): {
         route: CodexRoute | undefined;
         removeRouteListener: (() => void) | undefined;
+        /**
+         * True only when a `codex` value exists in storage but failed to parse or validate — never
+         * true for a plain first-time install with nothing stored yet (§9 Persistence).
+         */
+        storedDataIsCorrupt: boolean;
     } {
+        const rawValue = globalThis.localStorage.getItem(storage.storeName);
+        const storedDataIsCorrupt = rawValue !== null && storage.get.codex() === undefined;
         return {
             route: undefined,
             removeRouteListener: undefined,
+            storedDataIsCorrupt,
         };
     },
     init({updateState}) {
@@ -98,6 +115,14 @@ export const VirApp = defineElement()({
             topLevelSegment === 'settings';
 
         return html`
+            ${state.storedDataIsCorrupt
+                ? html`
+                      <p class="corrupt-data-banner">
+                          Stored data couldn't be read. Starting empty — import a backup from
+                          Settings if you have one.
+                      </p>
+                  `
+                : ''}
             <main>${renderPage(paths)}</main>
             ${showFab
                 ? html`

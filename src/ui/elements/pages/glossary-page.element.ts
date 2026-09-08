@@ -1,10 +1,37 @@
 import {css, defineElement, html, listen} from 'element-vir';
 import {normalize} from '../../../data/normalize.js';
 import {buildSearchIndex, searchIdioms} from '../../../data/search-index.js';
-import type {CodexDatabase, Idiom} from '../../../data/shapes.js';
-import {databaseShape} from '../../../data/shapes.js';
+import type {CodexDatabase, CodexSettings, Idiom} from '../../../data/shapes.js';
+import {databaseShape, settingsShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
+import {idiomDetailRoute, router} from '../../../router.js';
 import {IdiomRow} from '../malaphor/idiom-row.element.js';
+
+function pickRandomPair(idioms: readonly Idiom[]):
+    | readonly [
+          Idiom,
+          Idiom,
+      ]
+    | undefined {
+    if (idioms.length < 2) {
+        return undefined;
+    }
+    // eslint-disable-next-line sonarjs/pseudo-random -- picking a UI prompt, not a security context.
+    const firstIndex = Math.floor(Math.random() * idioms.length);
+    // eslint-disable-next-line sonarjs/pseudo-random -- picking a UI prompt, not a security context.
+    let secondIndex = Math.floor(Math.random() * (idioms.length - 1));
+    if (secondIndex >= firstIndex) {
+        secondIndex += 1;
+    }
+    const first = idioms[firstIndex];
+    const second = idioms[secondIndex];
+    return first && second
+        ? [
+              first,
+              second,
+          ]
+        : undefined;
+}
 
 type SortMode = 'alphabetical' | 'newest' | 'most-used';
 
@@ -78,18 +105,71 @@ export const GlossaryPage = defineElement()({
             color: var(--iron-faded);
             font-size: var(--font-size-body);
         }
+
+        .random-pair {
+            margin: 16px 20px;
+            padding: 12px 16px;
+            border: 1px solid color-mix(in srgb, var(--terre-verte) 40%, transparent);
+            border-radius: var(--border-radius);
+        }
+
+        .random-pair a {
+            display: block;
+            color: var(--terre-verte);
+            font-size: var(--font-size-body);
+            text-decoration: none;
+            padding: 4px 0;
+        }
+
+        .random-pair-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .random-pair-actions button {
+            border: none;
+            background: none;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-gloss);
+            color: var(--iron-faded);
+            cursor: pointer;
+            padding: 4px 0;
+        }
+
+        .show-random-pair-button {
+            margin: 16px 20px;
+            border: none;
+            background: none;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-gloss);
+            color: var(--terre-verte);
+            cursor: pointer;
+            padding: 4px 0;
+        }
     `,
     state(): {
         database: CodexDatabase;
+        settings: CodexSettings;
         removeStorageListener: (() => void) | undefined;
+        removeSettingsListener: (() => void) | undefined;
         searchQuery: string;
         sortMode: SortMode;
+        randomPair:
+            | readonly [
+                  Idiom,
+                  Idiom,
+              ]
+            | undefined;
     } {
         return {
             database: storage.get.codex() ?? databaseShape.default,
+            settings: storage.get.settings() ?? settingsShape.default,
             removeStorageListener: undefined,
+            removeSettingsListener: undefined,
             searchQuery: '',
             sortMode: 'alphabetical',
+            randomPair: undefined,
         };
     },
     init({updateState}) {
@@ -98,12 +178,19 @@ export const GlossaryPage = defineElement()({
                 database: value ?? databaseShape.default,
             });
         });
+        const removeSettingsListener = storage.listen.settings((value) => {
+            updateState({
+                settings: value ?? settingsShape.default,
+            });
+        });
         updateState({
             removeStorageListener,
+            removeSettingsListener,
         });
     },
     cleanup({state}) {
         state.removeStorageListener?.();
+        state.removeSettingsListener?.();
     },
     render({state, updateState}) {
         const {database, searchQuery, sortMode} = state;
@@ -169,6 +256,67 @@ export const GlossaryPage = defineElement()({
                     </button>
                 </div>
             </div>
+            ${state.settings.showRandomPairButton && database.idioms.length >= 2
+                ? state.randomPair
+                    ? html`
+                          <div class="random-pair">
+                              ${state.randomPair.map((idiom) => {
+                                  return html`
+                                      <a
+                                          href=${router.createRouteUrl({
+                                              paths: idiomDetailRoute(idiom.id),
+                                          }).url}
+                                          ${listen('click', (event) => {
+                                              router.setRouteOnDirectNavigation(
+                                                  {
+                                                      paths: idiomDetailRoute(idiom.id),
+                                                  },
+                                                  event as MouseEvent,
+                                              );
+                                          })}
+                                      >
+                                          ${idiom.text}
+                                      </a>
+                                  `;
+                              })}
+                              <div class="random-pair-actions">
+                                  <button
+                                      type="button"
+                                      ${listen('click', () => {
+                                          updateState({
+                                              randomPair: pickRandomPair(database.idioms),
+                                          });
+                                      })}
+                                  >
+                                      Show different two
+                                  </button>
+                                  <button
+                                      type="button"
+                                      ${listen('click', () => {
+                                          return updateState({
+                                              randomPair: undefined,
+                                          });
+                                      })}
+                                  >
+                                      Dismiss
+                                  </button>
+                              </div>
+                          </div>
+                      `
+                    : html`
+                          <button
+                              type="button"
+                              class="show-random-pair-button"
+                              ${listen('click', () => {
+                                  updateState({
+                                      randomPair: pickRandomPair(database.idioms),
+                                  });
+                              })}
+                          >
+                              Show me two at random
+                          </button>
+                      `
+                : ''}
             ${database.idioms.length === 0
                 ? html`
                       <p class="empty-state">

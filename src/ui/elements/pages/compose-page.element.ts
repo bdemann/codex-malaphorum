@@ -104,7 +104,8 @@ export const ComposePage = defineElement()({
         }
 
         .notes-input {
-            border: 1px solid color-mix(in srgb, var(--iron-faded) 30%, transparent);
+            background-color: var(--vellum-deep);
+            border: none;
             border-radius: var(--border-radius);
             padding: 10px 12px;
             min-height: 4em;

@@ -4,6 +4,7 @@ import {buildSearchIndex, searchMalaphors, type MalaphorMatch} from '../../../da
 import type {CodexDatabase, Malaphor} from '../../../data/shapes.js';
 import {databaseShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
+import {router} from '../../../router.js';
 import type {GlossLine} from '../malaphor/idiom-gloss.element.js';
 import {MalaphorRow} from '../malaphor/malaphor-row.element.js';
 
@@ -106,7 +107,8 @@ export const CodexPage = defineElement()({
             database: storage.get.codex() ?? databaseShape.default,
             searchQuery: '',
             sortMode: 'newest',
-            untaggedOnly: false,
+            /** Lands filtered when arriving from a Keep import via `/?filter=untagged` (§9). */
+            untaggedOnly: Boolean(router.readCurrentRoute().search.filter?.includes('untagged')),
             removeStorageListener: undefined,
         };
     },

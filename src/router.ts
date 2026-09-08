@@ -20,13 +20,22 @@ const pathTree = new PathTree({
 });
 
 export type CodexPaths = typeof pathTree.PathsType;
-export type CodexRoute = FullSpaRoute<CodexPaths, undefined, undefined>;
+/**
+ * Only recognized search param is `filter=untagged`, used to land on the Codex's Untagged filter
+ * (§9 Keep import).
+ */
+export type CodexSearch = Readonly<{filter?: readonly string[]}>;
+export type CodexRoute = FullSpaRoute<CodexPaths, CodexSearch, undefined>;
 
-export const router = new SpaRouter<CodexPaths, undefined, undefined>({
+export const router = new SpaRouter<CodexPaths, CodexSearch, undefined>({
     sanitizeRoute(rawRoute) {
         return {
             paths: pathTree.sanitizePaths(rawRoute.paths),
-            search: undefined,
+            search: rawRoute.search?.filter
+                ? {
+                      filter: rawRoute.search.filter,
+                  }
+                : {},
             hash: undefined,
         };
     },
