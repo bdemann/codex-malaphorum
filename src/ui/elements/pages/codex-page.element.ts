@@ -7,6 +7,7 @@ import {storage} from '../../../data/storage.js';
 import {router} from '../../../router.js';
 import type {GlossLine} from '../malaphor/idiom-gloss.element.js';
 import {MalaphorRow} from '../malaphor/malaphor-row.element.js';
+import {formControlFontFix} from '../shared-styles.js';
 
 type SortMode = 'newest' | 'alphabetical';
 
@@ -27,6 +28,8 @@ function sortMalaphors(malaphors: readonly Malaphor[], sortMode: SortMode): Mala
 export const CodexPage = defineElement()({
     tagName: 'codex-page',
     styles: css`
+        ${formControlFontFix}
+
         :host {
             display: block;
         }

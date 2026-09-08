@@ -1,4 +1,5 @@
 import {css, defineElement, defineElementEvent, html, listen} from 'element-vir';
+import {formControlFontFix} from '../shared-styles.js';
 
 export const FabButton = defineElement<{label: string}>()({
     tagName: 'fab-button',
@@ -6,6 +7,8 @@ export const FabButton = defineElement<{label: string}>()({
         activate: defineElementEvent<void>(),
     },
     styles: css`
+        ${formControlFontFix}
+
         :host {
             position: fixed;
             /* Sits just above the bottom nav, clear of a notched-device home indicator. */

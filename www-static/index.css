@@ -38,6 +38,18 @@
     box-sizing: border-box;
 }
 
+/**
+ * Form controls don't inherit typographic properties from their ancestors by default (a
+ * long-standing UA-stylesheet quirk) — without this, oldstyle figures and kerning silently stop
+ * at every button/input, even though font-family is set explicitly on each one.
+ */
+button,
+input,
+select,
+textarea {
+    font-feature-settings: inherit;
+}
+
 html,
 body {
     margin: 0;

@@ -12,6 +12,7 @@ import {storage} from '../../../data/storage.js';
 import {codexRoute, malaphorDetailRoute, router} from '../../../router.js';
 import {IdiomChip} from '../malaphor/idiom-chip.element.js';
 import {IdiomTypeahead} from '../malaphor/idiom-typeahead.element.js';
+import {formControlFontFix} from '../shared-styles.js';
 
 function formatAddedDate(isoString: string): string {
     return toFormattedString(createFullDateInUserTimezone(isoString), 'd MMMM yyyy');
@@ -33,6 +34,8 @@ function computeRecentIdiomIds(database: CodexDatabase): string[] {
 export const ComposePage = defineElement()({
     tagName: 'compose-page',
     styles: css`
+        ${formControlFontFix}
+
         :host {
             display: block;
         }
@@ -438,15 +441,12 @@ export const ComposePage = defineElement()({
                           <p class="shared-components">
                               Also used in:
                               ${sharedComponentMalaphors.map((malaphor, index) => {
+                                  const url = router.createRouteUrl({
+                                      paths: malaphorDetailRoute(malaphor.id),
+                                  }).url;
                                   return html`
                                       ${index > 0 ? ', ' : ''}
-                                      <a
-                                          href=${router.createRouteUrl({
-                                              paths: malaphorDetailRoute(malaphor.id),
-                                          }).url}
-                                      >
-                                          ${malaphor.text}
-                                      </a>
+                                      <a href=${url}>${malaphor.text}</a>
                                   `;
                               })}
                           </p>

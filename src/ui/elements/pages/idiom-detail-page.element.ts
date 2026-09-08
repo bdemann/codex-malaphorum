@@ -5,10 +5,13 @@ import {storage} from '../../../data/storage.js';
 import {glossaryRoute, router} from '../../../router.js';
 import {type GlossLine} from '../malaphor/idiom-gloss.element.js';
 import {MalaphorRow} from '../malaphor/malaphor-row.element.js';
+import {formControlFontFix} from '../shared-styles.js';
 
 export const IdiomDetailPage = defineElement<{idiomId: string}>()({
     tagName: 'idiom-detail-page',
     styles: css`
+        ${formControlFontFix}
+
         :host {
             display: block;
             padding: 20px;

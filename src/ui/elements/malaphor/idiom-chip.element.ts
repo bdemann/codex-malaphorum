@@ -1,4 +1,5 @@
 import {css, defineElement, defineElementEvent, html, listen} from 'element-vir';
+import {formControlFontFix} from '../shared-styles.js';
 
 export const IdiomChip = defineElement<{text: string}>()({
     tagName: 'idiom-chip',
@@ -6,6 +7,8 @@ export const IdiomChip = defineElement<{text: string}>()({
         remove: defineElementEvent<void>(),
     },
     styles: css`
+        ${formControlFontFix}
+
         :host {
             display: inline-flex;
         }

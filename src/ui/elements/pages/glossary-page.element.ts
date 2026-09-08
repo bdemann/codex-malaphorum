@@ -6,6 +6,7 @@ import {databaseShape, settingsShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
 import {idiomDetailRoute, router} from '../../../router.js';
 import {IdiomRow} from '../malaphor/idiom-row.element.js';
+import {formControlFontFix} from '../shared-styles.js';
 
 function pickRandomPair(idioms: readonly Idiom[]):
     | readonly [
@@ -54,6 +55,8 @@ function sortIdioms(
 export const GlossaryPage = defineElement()({
     tagName: 'glossary-page',
     styles: css`
+        ${formControlFontFix}
+
         :host {
             display: block;
         }

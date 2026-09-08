@@ -2,6 +2,7 @@ import {css, defineElement, defineElementEvent, html, listen} from 'element-vir'
 import {normalize} from '../../../data/normalize.js';
 import {buildSearchIndex, searchIdioms} from '../../../data/search-index.js';
 import type {Idiom} from '../../../data/shapes.js';
+import {formControlFontFix} from '../shared-styles.js';
 
 type ResultRow = {
     idiom: Idiom;
@@ -34,6 +35,8 @@ export const IdiomTypeahead = defineElement<{
         createAndAttach: defineElementEvent<string>(),
     },
     styles: css`
+        ${formControlFontFix}
+
         :host {
             display: block;
             position: relative;

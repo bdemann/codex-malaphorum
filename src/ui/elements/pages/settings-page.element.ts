@@ -13,6 +13,7 @@ import type {CodexDatabase, CodexSettings} from '../../../data/shapes.js';
 import {databaseShape, settingsShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
 import {codexRoute, router} from '../../../router.js';
+import {formControlFontFix} from '../shared-styles.js';
 
 type JsonImportSummary = {
     parsed: CodexDatabase;
@@ -62,6 +63,8 @@ function downloadJson(database: CodexDatabase) {
 export const SettingsPage = defineElement()({
     tagName: 'settings-page',
     styles: css`
+        ${formControlFontFix}
+
         :host {
             display: block;
             padding: 20px;

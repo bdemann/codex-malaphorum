@@ -5,6 +5,7 @@ import {databaseShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
 import {codexRoute, router} from '../../../router.js';
 import {IdiomGloss, type GlossLine} from '../malaphor/idiom-gloss.element.js';
+import {formControlFontFix} from '../shared-styles.js';
 
 function formatDate(isoString: string): string {
     return toFormattedString(createFullDateInUserTimezone(isoString), 'd MMMM yyyy');
@@ -13,6 +14,8 @@ function formatDate(isoString: string): string {
 export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
     tagName: 'malaphor-detail-page',
     styles: css`
+        ${formControlFontFix}
+
         :host {
             display: block;
             padding: 20px;
