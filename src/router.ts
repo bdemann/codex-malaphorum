@@ -11,7 +11,12 @@ const pathTree = new PathTree({
         malaphor: {
             anyChildren: true,
         },
-        idioms: {},
+        idioms: {
+            allowBare: true,
+            children: {
+                new: {},
+            },
+        },
         idiom: {
             anyChildren: true,
         },
@@ -67,6 +72,13 @@ export function malaphorDetailRoute(malaphorId: string): CodexPaths {
 
 export function glossaryRoute(): CodexPaths {
     return ['idioms'];
+}
+
+export function newIdiomRoute(): CodexPaths {
+    return [
+        'idioms',
+        'new',
+    ];
 }
 
 export function idiomDetailRoute(idiomId: string): CodexPaths {

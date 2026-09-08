@@ -1,6 +1,12 @@
 import {css, defineElement, html, listen} from 'element-vir';
 import {storage} from '../../data/storage.js';
-import {type CodexPaths, type CodexRoute, composeRoute, router} from '../../router.js';
+import {
+    type CodexPaths,
+    type CodexRoute,
+    composeRoute,
+    newIdiomRoute,
+    router,
+} from '../../router.js';
 import {BottomNav} from './nav/bottom-nav.element.js';
 import {FabButton} from './nav/fab-button.element.js';
 import {CodexPage} from './pages/codex-page.element.js';
@@ -8,6 +14,7 @@ import {ComposePage} from './pages/compose-page.element.js';
 import {GlossaryPage} from './pages/glossary-page.element.js';
 import {IdiomDetailPage} from './pages/idiom-detail-page.element.js';
 import {MalaphorDetailPage} from './pages/malaphor-detail-page.element.js';
+import {NewIdiomPage} from './pages/new-idiom-page.element.js';
 import {SettingsPage} from './pages/settings-page.element.js';
 
 function renderPage(paths: CodexPaths) {
@@ -25,6 +32,10 @@ function renderPage(paths: CodexPaths) {
             <${MalaphorDetailPage.assign({
                 malaphorId: secondSegment ?? '',
             })}></${MalaphorDetailPage}>
+        `;
+    } else if (topLevelSegment === 'idioms' && secondSegment === 'new') {
+        return html`
+            <${NewIdiomPage}></${NewIdiomPage}>
         `;
     } else if (topLevelSegment === 'idioms') {
         return html`
@@ -102,17 +113,23 @@ export const VirApp = defineElement()({
     },
     render({state}) {
         const paths = state.route?.paths ?? [];
-        const topLevelSegment = paths[0] ?? '';
-        const showFab = topLevelSegment === '' || topLevelSegment === 'idioms';
+        const [
+            topLevelSegment = '',
+            secondSegment,
+        ] = paths;
+        const onNewIdiomScreen = topLevelSegment === 'idioms' && secondSegment === 'new';
+        const showFab =
+            (topLevelSegment === '' || topLevelSegment === 'idioms') && !onNewIdiomScreen;
         /**
          * Only the three tab screens show the persistent bottom nav — none of the design doc's
          * mockups for compose or detail views include it, and a fixed nav bar would compete for
          * space with the on-screen keyboard during compose anyway.
          */
         const showBottomNav =
-            topLevelSegment === '' ||
-            topLevelSegment === 'idioms' ||
-            topLevelSegment === 'settings';
+            (topLevelSegment === '' ||
+                topLevelSegment === 'idioms' ||
+                topLevelSegment === 'settings') &&
+            !onNewIdiomScreen;
 
         return html`
             ${state.storedDataIsCorrupt
@@ -131,7 +148,10 @@ export const VirApp = defineElement()({
                       })}
                           ${listen(FabButton.events.activate, () => {
                               router.setRoute({
-                                  paths: composeRoute(),
+                                  paths:
+                                      topLevelSegment === 'idioms'
+                                          ? newIdiomRoute()
+                                          : composeRoute(),
                               });
                           })}
                       ></${FabButton}>
