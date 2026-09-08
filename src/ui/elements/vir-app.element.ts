@@ -87,6 +87,15 @@ export const VirApp = defineElement()({
         const paths = state.route?.paths ?? [];
         const topLevelSegment = paths[0] ?? '';
         const showFab = topLevelSegment === '' || topLevelSegment === 'idioms';
+        /**
+         * Only the three tab screens show the persistent bottom nav — none of the design doc's
+         * mockups for compose or detail views include it, and a fixed nav bar would compete for
+         * space with the on-screen keyboard during compose anyway.
+         */
+        const showBottomNav =
+            topLevelSegment === '' ||
+            topLevelSegment === 'idioms' ||
+            topLevelSegment === 'settings';
 
         return html`
             <main>${renderPage(paths)}</main>
@@ -103,9 +112,13 @@ export const VirApp = defineElement()({
                       ></${FabButton}>
                   `
                 : ''}
-            <${BottomNav.assign({
-                activeTopLevelSegment: topLevelSegment,
-            })}></${BottomNav}>
+            ${showBottomNav
+                ? html`
+                      <${BottomNav.assign({
+                          activeTopLevelSegment: topLevelSegment,
+                      })}></${BottomNav}>
+                  `
+                : ''}
         `;
     },
 });

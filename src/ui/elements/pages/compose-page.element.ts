@@ -1,24 +1,315 @@
-import {css, defineElement, html} from 'element-vir';
+import {createUuidV4, type Uuid} from '@augment-vir/common';
+import {getNowInIsoString} from 'date-vir';
+import {css, defineElement, html, listen} from 'element-vir';
+import type {CodexDatabase, Idiom, Malaphor} from '../../../data/shapes.js';
+import {databaseShape} from '../../../data/shapes.js';
+import {storage} from '../../../data/storage.js';
+import {codexRoute, malaphorDetailRoute, router} from '../../../router.js';
+import {IdiomChip} from '../malaphor/idiom-chip.element.js';
+import {IdiomTypeahead} from '../malaphor/idiom-typeahead.element.js';
+
+function computeRecentIdiomIds(database: CodexDatabase): string[] {
+    const lastUsedAt = new Map<string, string>();
+    for (const malaphor of database.malaphors) {
+        for (const idiomId of malaphor.componentIdiomIds) {
+            const existing = lastUsedAt.get(idiomId);
+            if (!existing || malaphor.createdAt > existing) {
+                lastUsedAt.set(idiomId, malaphor.createdAt);
+            }
+        }
+    }
+    return [...lastUsedAt.entries()].toSorted((a, b) => b[1].localeCompare(a[1])).map(([id]) => id);
+}
 
 export const ComposePage = defineElement()({
     tagName: 'compose-page',
     styles: css`
         :host {
             display: block;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            border-bottom: 1px solid color-mix(in srgb, var(--iron-faded) 20%, transparent);
+        }
+
+        header h1 {
+            font-size: var(--font-size-heading);
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .back-button {
+            border: none;
+            background: none;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-heading);
+            color: var(--iron-gall);
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .fields {
             padding: 20px;
         }
 
-        h1 {
+        textarea,
+        .malaphor-text-input {
+            width: 100%;
+            box-sizing: border-box;
+            border: none;
+            background: none;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-body);
+            color: var(--iron-gall);
+            padding: 0;
+            resize: none;
+            overflow: hidden;
+        }
+
+        .field-block {
+            margin-bottom: 24px;
+        }
+
+        h2.section-heading {
             font-size: var(--font-size-heading);
             font-weight: 500;
             font-feature-settings: 'smcp' 1;
             margin: 0 0 12px;
         }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .untagged-hint {
+            margin-top: 8px;
+            color: var(--iron-faded);
+            font-size: var(--font-size-gloss);
+        }
+
+        .notes-input {
+            border: 1px solid color-mix(in srgb, var(--iron-faded) 30%, transparent);
+            border-radius: var(--border-radius);
+            padding: 10px 12px;
+            min-height: 4em;
+        }
+
+        .save-button {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: var(--border-radius);
+            background-color: var(--oak);
+            color: var(--vellum);
+            font-family: var(--font-serif);
+            font-size: var(--font-size-body);
+            cursor: pointer;
+        }
+
+        .save-button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
     `,
-    render() {
+    state(): {
+        database: CodexDatabase;
+        removeStorageListener: (() => void) | undefined;
+        malaphorText: string;
+        notes: string;
+        attachedIdiomIds: Uuid[];
+    } {
+        return {
+            database: storage.get.codex() ?? databaseShape.default,
+            removeStorageListener: undefined,
+            malaphorText: '',
+            notes: '',
+            attachedIdiomIds: [],
+        };
+    },
+    init({updateState}) {
+        const removeStorageListener = storage.listen.codex((value) => {
+            updateState({
+                database: value ?? databaseShape.default,
+            });
+        });
+        updateState({
+            removeStorageListener,
+        });
+    },
+    cleanup({state}) {
+        state.removeStorageListener?.();
+    },
+    render({state, updateState}) {
+        const {database, malaphorText, notes, attachedIdiomIds} = state;
+        const idiomsById = new Map(
+            database.idioms.map((idiom) => {
+                return [
+                    idiom.id,
+                    idiom,
+                ] as const;
+            }),
+        );
+        const attachedIdioms = attachedIdiomIds
+            .map((id) => idiomsById.get(id))
+            .filter((idiom): idiom is Idiom => idiom !== undefined);
+        const recentIdiomIds = computeRecentIdiomIds(database);
+
+        function saveMalaphor() {
+            const text = malaphorText.trim();
+            if (!text) {
+                return;
+            }
+            const now = getNowInIsoString();
+            const newMalaphor: Malaphor = {
+                id: createUuidV4(),
+                text,
+                componentIdiomIds: attachedIdiomIds,
+                notes: notes.trim(),
+                createdAt: now,
+                updatedAt: now,
+            };
+            storage.set.codex({
+                ...database,
+                malaphors: [
+                    ...database.malaphors,
+                    newMalaphor,
+                ],
+            });
+            router.setRoute({
+                paths: malaphorDetailRoute(newMalaphor.id),
+            });
+        }
+
         return html`
-            <h1>New malaphor</h1>
-            <p>The compose flow (§7) goes here.</p>
+            <header>
+                <button
+                    type="button"
+                    class="back-button"
+                    aria-label="Back to the Codex"
+                    ${listen('click', () => {
+                        return router.setRoute({
+                            paths: codexRoute(),
+                        });
+                    })}
+                >
+                    ←
+                </button>
+                <h1>New malaphor</h1>
+            </header>
+            <div class="fields">
+                <div class="field-block">
+                    <textarea
+                        class="malaphor-text-input"
+                        placeholder="We'll burn that bridge when we come to it"
+                        rows="2"
+                        .value=${malaphorText}
+                        ${listen('input', (event) => {
+                            const textarea = event.target as HTMLTextAreaElement;
+                            textarea.style.height = 'auto';
+                            textarea.style.height = `${textarea.scrollHeight}px`;
+                            updateState({
+                                malaphorText: textarea.value,
+                            });
+                        })}
+                    ></textarea>
+                </div>
+
+                <div class="field-block">
+                    <h2 class="section-heading">Built from</h2>
+                    <div class="chips">
+                        ${attachedIdioms.map((idiom) => {
+                            return html`
+                                <${IdiomChip.assign({
+                                    text: idiom.text,
+                                })}
+                                    ${listen(IdiomChip.events.remove, () => {
+                                        updateState({
+                                            attachedIdiomIds: attachedIdiomIds.filter(
+                                                (id) => id !== idiom.id,
+                                            ),
+                                        });
+                                    })}
+                                ></${IdiomChip}>
+                            `;
+                        })}
+                    </div>
+                    <${IdiomTypeahead.assign({
+                        idioms: database.idioms,
+                        attachedIdiomIds,
+                        recentIdiomIds,
+                    })}
+                        ${listen(IdiomTypeahead.events.attachExisting, (event) => {
+                            updateState({
+                                attachedIdiomIds: [
+                                    ...attachedIdiomIds,
+                                    event.detail as Uuid,
+                                ],
+                            });
+                        })}
+                        ${listen(IdiomTypeahead.events.createAndAttach, (event) => {
+                            const now = getNowInIsoString();
+                            const newIdiom: Idiom = {
+                                id: createUuidV4(),
+                                text: event.detail,
+                                aliases: [],
+                                notes: '',
+                                createdAt: now,
+                                updatedAt: now,
+                            };
+                            storage.set.codex({
+                                ...database,
+                                idioms: [
+                                    ...database.idioms,
+                                    newIdiom,
+                                ],
+                            });
+                            updateState({
+                                attachedIdiomIds: [
+                                    ...attachedIdiomIds,
+                                    newIdiom.id,
+                                ],
+                            });
+                        })}
+                    ></${IdiomTypeahead}>
+                    ${attachedIdiomIds.length < 2
+                        ? html`
+                              <p class="untagged-hint">
+                                  No components tagged. You can add them later.
+                              </p>
+                          `
+                        : ''}
+                </div>
+
+                <div class="field-block">
+                    <h2 class="section-heading">Notes (optional)</h2>
+                    <textarea
+                        class="notes-input"
+                        .value=${notes}
+                        ${listen('input', (event) => {
+                            updateState({
+                                notes: (event.target as HTMLTextAreaElement).value,
+                            });
+                        })}
+                    ></textarea>
+                </div>
+
+                <button
+                    type="button"
+                    class="save-button"
+                    ?disabled=${!malaphorText.trim()}
+                    ${listen('click', saveMalaphor)}
+                >
+                    Save malaphor
+                </button>
+            </div>
         `;
     },
 });
