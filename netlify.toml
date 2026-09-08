@@ -1,0 +1,14 @@
+[build]
+command = "npm run build"
+publish = "dist"
+
+[build.environment]
+# Locally verified working version (see local-node-setup memory) — newer than the design
+# doc's suggested "22" because virmator's own package.json requires Node ^22.22.2 or ^24.15.0,
+# and a bare "22" pin risks resolving to a Netlify default patch that doesn't satisfy that.
+NODE_VERSION = "24"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
