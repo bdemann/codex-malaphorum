@@ -9,10 +9,10 @@ import {
 import {css, defineElement, html, listen} from 'element-vir';
 import {checkValidShape} from 'object-shape-tester';
 import {normalize} from '../../../data/normalize.js';
-import type {CodexDatabase, CodexSettings} from '../../../data/shapes.js';
+import type {CodexDatabase, CodexSettings, Idiom} from '../../../data/shapes.js';
 import {databaseShape, settingsShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
-import {codexRoute, router} from '../../../router.js';
+import {codexRoute, glossaryRoute, router} from '../../../router.js';
 import {formControlFontFix} from '../shared-styles.js';
 
 type JsonImportSummary = {
@@ -22,7 +22,7 @@ type JsonImportSummary = {
     collisionCount: number;
 };
 
-type KeepImportLine = {
+type PastedLinePreview = {
     text: string;
     checked: boolean;
     alreadyExists: boolean;
@@ -200,7 +200,9 @@ export const SettingsPage = defineElement()({
         replaceConfirmText: string;
         showReplaceConfirm: boolean;
         keepImportText: string;
-        keepImportPreview: KeepImportLine[] | undefined;
+        keepImportPreview: PastedLinePreview[] | undefined;
+        idiomImportText: string;
+        idiomImportPreview: PastedLinePreview[] | undefined;
     } {
         return {
             database: storage.get.codex() ?? databaseShape.default,
@@ -213,6 +215,8 @@ export const SettingsPage = defineElement()({
             showReplaceConfirm: false,
             keepImportText: '',
             keepImportPreview: undefined,
+            idiomImportText: '',
+            idiomImportPreview: undefined,
         };
     },
     init({updateState}) {
@@ -342,7 +346,7 @@ export const SettingsPage = defineElement()({
             const existingNormalizedTexts = new Set(
                 database.malaphors.map((malaphor) => normalize(malaphor.text)),
             );
-            const preview: KeepImportLine[] = lines.map((text) => {
+            const preview: PastedLinePreview[] = lines.map((text) => {
                 const alreadyExists = existingNormalizedTexts.has(normalize(text));
                 return {
                     text,
@@ -385,6 +389,61 @@ export const SettingsPage = defineElement()({
                 search: {
                     filter: ['untagged'],
                 },
+            });
+        }
+
+        function previewIdiomImport() {
+            const lines = state.idiomImportText
+                .split('\n')
+                .map((line) => line.trim())
+                .filter((line) => line.length >= 3);
+            const existingNormalizedTexts = new Set(
+                database.idioms.map((idiom) => normalize(idiom.text)),
+            );
+            const preview: PastedLinePreview[] = lines.map((text) => {
+                const alreadyExists = existingNormalizedTexts.has(normalize(text));
+                return {
+                    text,
+                    checked: !alreadyExists,
+                    alreadyExists,
+                };
+            });
+            updateState({
+                idiomImportPreview: preview,
+            });
+        }
+
+        function confirmIdiomImport() {
+            const preview = state.idiomImportPreview;
+            if (!preview) {
+                return;
+            }
+            const now = getNowInIsoString();
+            const newIdioms: Idiom[] = preview
+                .filter((line) => line.checked)
+                .map((line) => {
+                    return {
+                        id: createUuidV4(),
+                        text: line.text,
+                        aliases: [],
+                        notes: '',
+                        createdAt: now,
+                        updatedAt: now,
+                    };
+                });
+            storage.set.codex({
+                ...database,
+                idioms: [
+                    ...database.idioms,
+                    ...newIdioms,
+                ],
+            });
+            updateState({
+                idiomImportText: '',
+                idiomImportPreview: undefined,
+            });
+            router.setRoute({
+                paths: glossaryRoute(),
             });
         }
 
@@ -544,6 +603,93 @@ export const SettingsPage = defineElement()({
                               type="button"
                               ?disabled=${!state.keepImportText.trim()}
                               ${listen('click', previewKeepImport)}
+                          >
+                              Preview
+                          </button>
+                      `}
+            </section>
+
+            <section>
+                <h2 class="section-heading">Import idioms</h2>
+                <p class="gloss-note">
+                    Paste a list of idioms, one per line. Each becomes a new glossary entry.
+                </p>
+                <textarea
+                    .value=${state.idiomImportText}
+                    ${listen('input', (event) => {
+                        updateState({
+                            idiomImportText: (event.target as HTMLTextAreaElement).value,
+                            idiomImportPreview: undefined,
+                        });
+                    })}
+                ></textarea>
+                ${state.idiomImportPreview
+                    ? html`
+                          ${state.idiomImportPreview.map((line, index) => {
+                              return html`
+                                  <div class="keep-preview-row">
+                                      <input
+                                          type="checkbox"
+                                          .checked=${line.checked}
+                                          ${listen('change', (event) => {
+                                              const checked = (event.target as HTMLInputElement)
+                                                  .checked;
+                                              const preview = [
+                                                  ...(state.idiomImportPreview ?? []),
+                                              ];
+                                              const target = preview[index];
+                                              if (target) {
+                                                  preview[index] = {
+                                                      ...target,
+                                                      checked,
+                                                  };
+                                              }
+                                              updateState({
+                                                  idiomImportPreview: preview,
+                                              });
+                                          })}
+                                      />
+                                      <div>
+                                          <p class="keep-preview-text">${line.text}</p>
+                                          ${line.alreadyExists
+                                              ? html`
+                                                    <p class="keep-preview-note">
+                                                        already have this
+                                                    </p>
+                                                `
+                                              : ''}
+                                      </div>
+                                  </div>
+                              `;
+                          })}
+                          <div class="import-actions">
+                              <button
+                                  type="button"
+                                  ?disabled=${!state.idiomImportPreview.some(
+                                      (line) => line.checked,
+                                  )}
+                                  ${listen('click', confirmIdiomImport)}
+                              >
+                                  Import checked
+                              </button>
+                              <button
+                                  type="button"
+                                  class="text-button"
+                                  ${listen('click', () => {
+                                      return updateState({
+                                          idiomImportPreview: undefined,
+                                      });
+                                  })}
+                              >
+                                  Cancel
+                              </button>
+                          </div>
+                      `
+                    : html`
+                          <button
+                              type="button"
+                              ?disabled=${!state.idiomImportText.trim()}
+                              ${listen('click', previewIdiomImport)}
                           >
                               Preview
                           </button>
