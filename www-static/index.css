@@ -1,0 +1,68 @@
+/* Self-hosted for offline PWA use — do not link fonts.googleapis.com. */
+@font-face {
+    font-family: 'EB Garamond';
+    font-style: normal;
+    /* Variable font: one file covers the whole regular-through-semibold range we use. */
+    font-weight: 400 800;
+    font-display: swap;
+    src:
+        url('/fonts/eb-garamond-variable.woff2') format('woff2-variations'),
+        url('/fonts/eb-garamond-variable.woff2') format('woff2');
+}
+
+:root {
+    /* Named for their materials — keeps later additions coherent. See design doc §4.1. */
+    --vellum: #e3d9c2; /* page. Warmer/greyer than the usual cream. */
+    --vellum-deep: #d6c9ac; /* recessed areas, input wells, pressed states */
+    --oak: #4a3b2a; /* desk. Nav bar, sheet backgrounds, footer */
+    --iron-gall: #2e2417; /* body text */
+    --iron-faded: #6b5b45; /* secondary text, glosses, metadata */
+    --minium: #a8321e; /* rubrication ONLY: wordmark, drop-cap initial, collision warnings */
+    --terre-verte: #5a6b4a; /* idiom chips / the idiom half of the app */
+
+    --border-radius: 2px;
+
+    --font-serif: 'EB Garamond', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+
+    /* Type scale — see design doc §4.2. */
+    --font-size-malaphor-detail: 33px;
+    --font-size-malaphor-row: 21px;
+    --font-size-heading: 21px;
+    --font-size-body: 17px;
+    --font-size-gloss: 15px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    background-color: var(--vellum);
+    /**
+     * Subliminal grain: SVG feTurbulence as a data URI, fixed to the viewport via
+     * background-attachment. Kept on `body`'s own background (not a pseudo-element) so it never
+     * needs z-index management to stay behind content.
+     */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-attachment: fixed;
+    background-repeat: repeat;
+
+    color: var(--iron-gall);
+    font-family: var(--font-serif);
+    font-size: var(--font-size-body);
+    line-height: 1.55;
+    font-feature-settings:
+        'onum' 1,
+        'kern' 1,
+        'liga' 1;
+}
