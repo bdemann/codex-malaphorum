@@ -1,10 +1,14 @@
-import {createFullDateInUserTimezone, toFormattedString} from 'date-vir';
+import {createUuidV4, type Uuid} from '@augment-vir/common';
+import {createFullDateInUserTimezone, getNowInIsoString, toFormattedString} from 'date-vir';
 import {css, defineElement, html, listen} from 'element-vir';
-import type {CodexDatabase, Idiom} from '../../../data/shapes.js';
+import {computeRecentIdiomIds} from '../../../data/idiom-usage.js';
+import type {CodexDatabase, Idiom, Malaphor} from '../../../data/shapes.js';
 import {databaseShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
 import {codexRoute, router} from '../../../router.js';
+import {IdiomChip} from '../malaphor/idiom-chip.element.js';
 import {IdiomGloss, type GlossLine} from '../malaphor/idiom-gloss.element.js';
+import {IdiomTypeahead} from '../malaphor/idiom-typeahead.element.js';
 import {formControlFontFix} from '../shared-styles.js';
 
 function formatDate(isoString: string): string {
@@ -52,6 +56,38 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
             color: var(--iron-faded);
         }
 
+        .untagged-hint {
+            margin: 12px 0 0;
+            color: var(--iron-faded);
+            font-size: var(--font-size-gloss);
+        }
+
+        h2.section-heading {
+            font-size: var(--font-size-heading);
+            font-weight: 500;
+            font-feature-settings: 'smcp' 1;
+            margin: 24px 0 12px;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .tag-toggle {
+            display: block;
+            margin-top: 12px;
+            border: none;
+            background: none;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-gloss);
+            color: var(--iron-faded);
+            cursor: pointer;
+            padding: 4px 0;
+        }
+
         .actions {
             margin-top: 32px;
             display: flex;
@@ -76,11 +112,13 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
         database: CodexDatabase;
         removeStorageListener: (() => void) | undefined;
         confirmingDelete: boolean;
+        editingComponents: boolean;
     } {
         return {
             database: storage.get.codex() ?? databaseShape.default,
             removeStorageListener: undefined,
             confirmingDelete: false,
+            editingComponents: false,
         };
     },
     init({updateState}) {
@@ -123,6 +161,10 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
                     text: idiom.text,
                 };
             });
+        const attachedIdioms = malaphor.componentIdiomIds
+            .map((id) => idiomsById.get(id))
+            .filter((idiom): idiom is Idiom => idiom !== undefined);
+        const recentIdiomIds = computeRecentIdiomIds(database);
 
         function deleteMalaphor() {
             if (!malaphor) {
@@ -137,16 +179,132 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
             });
         }
 
+        function setComponentIds(componentIdiomIds: Uuid[]) {
+            if (!malaphor) {
+                return;
+            }
+            const updated: Malaphor = {
+                ...malaphor,
+                componentIdiomIds,
+                updatedAt: getNowInIsoString(),
+            };
+            storage.set.codex({
+                ...database,
+                malaphors: database.malaphors.map((entry) => {
+                    return entry.id === updated.id ? updated : entry;
+                }),
+            });
+        }
+
         return html`
             <p class="malaphor-text">${malaphor.text}</p>
-            ${glossLines.length
+            ${state.editingComponents
                 ? html`
-                      <${IdiomGloss.assign({
-                          lines: glossLines,
-                          linkToIdioms: true,
-                      })}></${IdiomGloss}>
+                      <h2 class="section-heading">Built from</h2>
+                      <div class="chips">
+                          ${attachedIdioms.map((idiom) => {
+                              return html`
+                                  <${IdiomChip.assign({
+                                      text: idiom.text,
+                                  })}
+                                      ${listen(IdiomChip.events.remove, () => {
+                                          setComponentIds(
+                                              malaphor.componentIdiomIds.filter(
+                                                  (id) => id !== idiom.id,
+                                              ),
+                                          );
+                                      })}
+                                  ></${IdiomChip}>
+                              `;
+                          })}
+                      </div>
+                      <${IdiomTypeahead.assign({
+                          idioms: database.idioms,
+                          attachedIdiomIds: malaphor.componentIdiomIds,
+                          recentIdiomIds,
+                      })}
+                          ${listen(IdiomTypeahead.events.attachExisting, (event) => {
+                              setComponentIds([
+                                  ...malaphor.componentIdiomIds,
+                                  event.detail as Uuid,
+                              ]);
+                          })}
+                          ${listen(IdiomTypeahead.events.createAndAttach, (event) => {
+                              const now = getNowInIsoString();
+                              const newIdiom: Idiom = {
+                                  id: createUuidV4(),
+                                  text: event.detail,
+                                  aliases: [],
+                                  notes: '',
+                                  createdAt: now,
+                                  updatedAt: now,
+                              };
+                              const updated: Malaphor = {
+                                  ...malaphor,
+                                  componentIdiomIds: [
+                                      ...malaphor.componentIdiomIds,
+                                      newIdiom.id,
+                                  ],
+                                  updatedAt: now,
+                              };
+                              storage.set.codex({
+                                  ...database,
+                                  idioms: [
+                                      ...database.idioms,
+                                      newIdiom,
+                                  ],
+                                  malaphors: database.malaphors.map((entry) => {
+                                      return entry.id === updated.id ? updated : entry;
+                                  }),
+                              });
+                          })}
+                      ></${IdiomTypeahead}>
+                      <button
+                          type="button"
+                          class="tag-toggle"
+                          ${listen('click', () => {
+                              return updateState({
+                                  editingComponents: false,
+                              });
+                          })}
+                      >
+                          Done
+                      </button>
                   `
-                : ''}
+                : html`
+                      ${glossLines.length
+                          ? html`
+                                <${IdiomGloss.assign({
+                                    lines: glossLines,
+                                    linkToIdioms: true,
+                                })}></${IdiomGloss}>
+                                <button
+                                    type="button"
+                                    class="tag-toggle"
+                                    ${listen('click', () => {
+                                        return updateState({
+                                            editingComponents: true,
+                                        });
+                                    })}
+                                >
+                                    Edit idioms
+                                </button>
+                            `
+                          : html`
+                                <p class="untagged-hint">Untagged.</p>
+                                <button
+                                    type="button"
+                                    class="tag-toggle"
+                                    ${listen('click', () => {
+                                        return updateState({
+                                            editingComponents: true,
+                                        });
+                                    })}
+                                >
+                                    Add idioms
+                                </button>
+                            `}
+                  `}
             ${malaphor.notes
                 ? html`
                       <p class="notes">${malaphor.notes}</p>

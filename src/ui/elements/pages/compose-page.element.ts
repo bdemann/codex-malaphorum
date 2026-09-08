@@ -6,6 +6,7 @@ import {
     findMalaphorsSharingComponents,
     type CollisionCheck,
 } from '../../../data/collisions.js';
+import {computeRecentIdiomIds} from '../../../data/idiom-usage.js';
 import type {CodexDatabase, Idiom, Malaphor} from '../../../data/shapes.js';
 import {databaseShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
@@ -16,19 +17,6 @@ import {formControlFontFix} from '../shared-styles.js';
 
 function formatAddedDate(isoString: string): string {
     return toFormattedString(createFullDateInUserTimezone(isoString), 'd MMMM yyyy');
-}
-
-function computeRecentIdiomIds(database: CodexDatabase): string[] {
-    const lastUsedAt = new Map<string, string>();
-    for (const malaphor of database.malaphors) {
-        for (const idiomId of malaphor.componentIdiomIds) {
-            const existing = lastUsedAt.get(idiomId);
-            if (!existing || malaphor.createdAt > existing) {
-                lastUsedAt.set(idiomId, malaphor.createdAt);
-            }
-        }
-    }
-    return [...lastUsedAt.entries()].toSorted((a, b) => b[1].localeCompare(a[1])).map(([id]) => id);
 }
 
 export const ComposePage = defineElement()({
