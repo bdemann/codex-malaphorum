@@ -6,13 +6,9 @@ module.exports = {
         ...baseConfig.ignorePaths,
         // Personal export data, not source -- may contain deliberate malaphor/idiom misspellings.
         '.not-committed/**',
-        '.not-commited/**',
     ],
     words: [
         ...baseConfig.words,
-        // Matches the actual (misspelled, but real) local directory name used for scratch/export
-        // files -- see .gitignore.
-        'commited',
         // The app's own invented/borrowed vocabulary (see codex-malaphorum-design.md).
         'malaphor',
         'malaphors',

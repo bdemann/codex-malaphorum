@@ -1,7 +1,6 @@
 .DS_Store
 .history/
 .not-committed/
-.not-commited/
 *.tgz
 /Icon?
 all-files-for-code-coverage.test.ts
