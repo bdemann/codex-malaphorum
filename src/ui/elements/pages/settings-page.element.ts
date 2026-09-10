@@ -123,6 +123,18 @@ export const SettingsPage = defineElement()({
             color: var(--iron-gall);
         }
 
+        input[type='file']::file-selector-button {
+            font-family: var(--font-serif);
+            font-size: var(--font-size-gloss);
+            color: var(--vellum);
+            background-color: var(--oak);
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 8px 14px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
         textarea {
             background-color: var(--vellum-deep);
             border: none;

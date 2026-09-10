@@ -70,6 +70,16 @@ export const ComposePage = defineElement()({
             overflow: hidden;
         }
 
+        /**
+         * field-sizing grows the box to fit its content on its own, including content set before
+         * any 'input' event fires (e.g. editing an existing malaphor) -- the manual
+         * scrollHeight-on-input JS this used to rely on only ever ran after the first keystroke,
+         * so a long pre-filled value stayed clipped to two rows until the user typed something.
+         */
+        .malaphor-text-input {
+            field-sizing: content;
+        }
+
         .field-block {
             margin-bottom: 24px;
         }
@@ -286,11 +296,8 @@ export const ComposePage = defineElement()({
                         rows="2"
                         .value=${malaphorText}
                         ${listen('input', (event) => {
-                            const textarea = event.target as HTMLTextAreaElement;
-                            textarea.style.height = 'auto';
-                            textarea.style.height = `${textarea.scrollHeight}px`;
                             updateState({
-                                malaphorText: textarea.value,
+                                malaphorText: (event.target as HTMLTextAreaElement).value,
                                 collisionWarning: undefined,
                             });
                         })}

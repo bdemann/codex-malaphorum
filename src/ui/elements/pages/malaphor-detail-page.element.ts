@@ -155,6 +155,13 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
             padding: 0;
             resize: none;
             overflow: hidden;
+            /**
+             * Grows the box to fit its content on its own, including the pre-filled text set when
+             * entering edit mode -- the manual scrollHeight-on-input JS this used to rely on only
+             * ever ran after the first keystroke, so a long malaphor's text stayed clipped to two
+             * rows until the user typed something.
+             */
+            field-sizing: content;
         }
 
         textarea.notes-input {
@@ -457,11 +464,8 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
                               rows="2"
                               .value=${state.editText}
                               ${listen('input', (event) => {
-                                  const textarea = event.target as HTMLTextAreaElement;
-                                  textarea.style.height = 'auto';
-                                  textarea.style.height = `${textarea.scrollHeight}px`;
                                   updateState({
-                                      editText: textarea.value,
+                                      editText: (event.target as HTMLTextAreaElement).value,
                                       editCollisionWarning: undefined,
                                   });
                               })}
