@@ -2,6 +2,7 @@ import {createUuidV4, type Uuid} from '@augment-vir/common';
 import {createFullDateInUserTimezone, getNowInIsoString, toFormattedString} from 'date-vir';
 import {css, defineElement, html, listen} from 'element-vir';
 import {checkForCollision, type CollisionCheck} from '../../../data/collisions.js';
+import {formatMalaphorForShare} from '../../../data/format-share-text.js';
 import {computeRecentIdiomIds} from '../../../data/idiom-usage.js';
 import type {CodexDatabase, Idiom, Malaphor} from '../../../data/shapes.js';
 import {databaseShape} from '../../../data/shapes.js';
@@ -115,7 +116,13 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
         .actions {
             margin-top: 32px;
             display: flex;
+            align-items: center;
             gap: 16px;
+        }
+
+        .share-feedback {
+            font-size: var(--font-size-gloss);
+            color: var(--terre-verte);
         }
 
         .actions button {
@@ -235,6 +242,7 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
         editText: string;
         editNotes: string;
         editCollisionWarning: CollisionCheck | undefined;
+        shareFeedback: string | undefined;
     } {
         return {
             database: storage.get.codex() ?? databaseShape.default,
@@ -244,6 +252,7 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
             editingMalaphor: false,
             editText: '',
             editNotes: '',
+            shareFeedback: undefined,
             editCollisionWarning: undefined,
         };
     },
@@ -303,6 +312,43 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
             router.setRoute({
                 paths: codexRoute(),
             });
+        }
+
+        async function copyShareTextToClipboard(text: string) {
+            try {
+                await navigator.clipboard.writeText(text);
+                updateState({
+                    shareFeedback: 'Copied to clipboard',
+                });
+                setTimeout(() => {
+                    updateState({
+                        shareFeedback: undefined,
+                    });
+                }, 2000);
+            } catch {
+                // Nothing more to do if the clipboard write itself fails (e.g. permissions).
+            }
+        }
+
+        async function shareMalaphor() {
+            if (!malaphor) {
+                return;
+            }
+            const text = formatMalaphorForShare(malaphor, attachedIdioms);
+            if ('share' in navigator) {
+                try {
+                    await navigator.share({
+                        text,
+                    });
+                } catch (error) {
+                    if (error instanceof Error && error.name === 'AbortError') {
+                        return;
+                    }
+                    await copyShareTextToClipboard(text);
+                }
+                return;
+            }
+            await copyShareTextToClipboard(text);
         }
 
         function setRating(rating: number) {
@@ -662,6 +708,9 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
                                     <button type="button" ${listen('click', startEditingMalaphor)}>
                                         Edit
                                     </button>
+                                    <button type="button" ${listen('click', shareMalaphor)}>
+                                        Share
+                                    </button>
                                     <button
                                         type="button"
                                         ${listen('click', () => {
@@ -672,6 +721,13 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
                                     >
                                         Delete
                                     </button>
+                                    ${state.shareFeedback
+                                        ? html`
+                                              <span class="share-feedback">
+                                                  ${state.shareFeedback}
+                                              </span>
+                                          `
+                                        : ''}
                                 `}
                       </div>
                   `}
