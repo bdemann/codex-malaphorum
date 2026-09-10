@@ -37,15 +37,6 @@ listens for it. The design doc's route table has no "add idiom" route or flow an
 (the last place such a flow could plausibly have been introduced) was built without one. This
 needs an actual product decision from Benjamin, not another engineering guess.
 
-## Flagged for design review
-
-**`--terre-verte` (idiom green) on `--vellum` measures ~4.12:1 contrast** — under the WCAG AA
-4.5:1 threshold for normal text (for comparison, `--iron-gall` is 10.84:1 and `--iron-faded` is
-4.67:1, both of which the design doc explicitly asked to be checked and both pass). Terre-verte is
-used extensively — gloss lines, idiom chips, Glossary rows — so this is worth a deliberate call
-rather than a silent palette tweak: darken it, reserve it for larger text sizes, or accept it as a
-considered exception.
-
 ## Needs real-device verification
 
 Per the design doc's own admission that Playwright can't fully cover these:

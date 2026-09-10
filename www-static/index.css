@@ -18,7 +18,14 @@
     --iron-gall: #2e2417; /* body text */
     --iron-faded: #6b5b45; /* secondary text, glosses, metadata */
     --minium: #a8321e; /* rubrication ONLY: wordmark, drop-cap initial, collision warnings */
-    --terre-verte: #5a6b4a; /* idiom chips / the idiom half of the app */
+    /*
+     * idiom chips / the idiom half of the app. Deepened from the original #5a6b4a (4.12:1 on
+     * --vellum, under the 4.5:1 AA floor, and read as a dim olive rather than green) to a more
+     * saturated pine green at 5.98:1 -- chosen over a couple of even-subtler AA-passing options
+     * specifically because it reads unmistakably as green. See codex-malaphorum-design.md's
+     * "Flagged for design review" note in the README for the original flag.
+     */
+    --terre-verte: #305542;
 
     --border-radius: 2px;
 
