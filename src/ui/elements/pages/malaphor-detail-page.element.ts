@@ -1,11 +1,12 @@
 import {createUuidV4, type Uuid} from '@augment-vir/common';
 import {createFullDateInUserTimezone, getNowInIsoString, toFormattedString} from 'date-vir';
 import {css, defineElement, html, listen} from 'element-vir';
+import {checkForCollision, type CollisionCheck} from '../../../data/collisions.js';
 import {computeRecentIdiomIds} from '../../../data/idiom-usage.js';
 import type {CodexDatabase, Idiom, Malaphor} from '../../../data/shapes.js';
 import {databaseShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
-import {codexRoute, router} from '../../../router.js';
+import {codexRoute, malaphorDetailRoute, router} from '../../../router.js';
 import {IdiomChip} from '../malaphor/idiom-chip.element.js';
 import {IdiomGloss, type GlossLine} from '../malaphor/idiom-gloss.element.js';
 import {IdiomTypeahead} from '../malaphor/idiom-typeahead.element.js';
@@ -130,18 +131,120 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
         .actions button.confirm-delete {
             color: var(--minium);
         }
+
+        .edit-field {
+            margin-bottom: 20px;
+        }
+
+        textarea.malaphor-text-input {
+            width: 100%;
+            box-sizing: border-box;
+            border: none;
+            background: none;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-malaphor-detail);
+            line-height: 1.4;
+            color: var(--iron-gall);
+            padding: 0;
+            resize: none;
+            overflow: hidden;
+        }
+
+        textarea.notes-input {
+            width: 100%;
+            box-sizing: border-box;
+            border: none;
+            background-color: var(--vellum-deep);
+            border-radius: var(--border-radius);
+            padding: 10px 12px;
+            min-height: 4em;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-body);
+            color: var(--iron-gall);
+            resize: none;
+        }
+
+        .edit-actions {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .edit-actions button {
+            border: none;
+            border-radius: var(--border-radius);
+            background-color: var(--oak);
+            color: var(--vellum);
+            font-family: var(--font-serif);
+            font-size: var(--font-size-body);
+            padding: 10px 16px;
+            cursor: pointer;
+        }
+
+        .edit-actions button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        .edit-actions button.text-button {
+            background: none;
+            color: var(--iron-gall);
+            padding: 10px 0;
+        }
+
+        .collision-warning {
+            border: 1px solid var(--minium);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .collision-warning .warning-heading {
+            color: var(--minium);
+            font-weight: 500;
+            margin: 0 0 8px;
+        }
+
+        .collision-warning .warning-detail {
+            font-size: var(--font-size-gloss);
+            color: var(--iron-faded);
+            margin: 0 0 16px;
+        }
+
+        .collision-warning .warning-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .collision-warning button {
+            border: none;
+            background: none;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-body);
+            color: var(--iron-gall);
+            cursor: pointer;
+            padding: 8px 0;
+        }
     `,
     state(): {
         database: CodexDatabase;
         removeStorageListener: (() => void) | undefined;
         confirmingDelete: boolean;
         editingComponents: boolean;
+        editingMalaphor: boolean;
+        editText: string;
+        editNotes: string;
+        editCollisionWarning: CollisionCheck | undefined;
     } {
         return {
             database: storage.get.codex() ?? databaseShape.default,
             removeStorageListener: undefined,
             confirmingDelete: false,
             editingComponents: false,
+            editingMalaphor: false,
+            editText: '',
+            editNotes: '',
+            editCollisionWarning: undefined,
         };
     },
     init({updateState}) {
@@ -219,6 +322,69 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
             });
         }
 
+        function startEditingMalaphor() {
+            if (!malaphor) {
+                return;
+            }
+            updateState({
+                editingMalaphor: true,
+                editingComponents: false,
+                editText: malaphor.text,
+                editNotes: malaphor.notes,
+                editCollisionWarning: undefined,
+            });
+        }
+
+        function performSaveMalaphorEdit() {
+            if (!malaphor) {
+                return;
+            }
+            const text = state.editText.trim();
+            if (!text) {
+                return;
+            }
+            const updated: Malaphor = {
+                ...malaphor,
+                text,
+                notes: state.editNotes.trim(),
+                updatedAt: getNowInIsoString(),
+            };
+            storage.set.codex({
+                ...database,
+                malaphors: database.malaphors.map((entry) => {
+                    return entry.id === updated.id ? updated : entry;
+                }),
+            });
+            updateState({
+                editingMalaphor: false,
+            });
+        }
+
+        function attemptSaveMalaphorEdit() {
+            if (!malaphor) {
+                return;
+            }
+            const text = state.editText.trim();
+            if (!text) {
+                return;
+            }
+            const collision = checkForCollision(
+                {
+                    text,
+                    componentIdiomIds: malaphor.componentIdiomIds,
+                },
+                database.malaphors,
+                malaphor.id,
+            );
+            if (collision) {
+                updateState({
+                    editCollisionWarning: collision,
+                });
+                return;
+            }
+            performSaveMalaphorEdit();
+        }
+
         function setComponentIds(componentIdiomIds: Uuid[]) {
             if (!malaphor) {
                 return;
@@ -237,7 +403,28 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
         }
 
         return html`
-            <p class="malaphor-text">${malaphor.text}</p>
+            ${state.editingMalaphor
+                ? html`
+                      <div class="edit-field">
+                          <textarea
+                              class="malaphor-text-input"
+                              rows="2"
+                              .value=${state.editText}
+                              ${listen('input', (event) => {
+                                  const textarea = event.target as HTMLTextAreaElement;
+                                  textarea.style.height = 'auto';
+                                  textarea.style.height = `${textarea.scrollHeight}px`;
+                                  updateState({
+                                      editText: textarea.value,
+                                      editCollisionWarning: undefined,
+                                  });
+                              })}
+                          ></textarea>
+                      </div>
+                  `
+                : html`
+                      <p class="malaphor-text">${malaphor.text}</p>
+                  `}
             <div class="rating-row">
                 <${StarRating.assign({
                     rating: malaphor.rating,
@@ -357,11 +544,88 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
                                 </button>
                             `}
                   `}
-            ${malaphor.notes
+            ${state.editingMalaphor
                 ? html`
-                      <p class="notes">${malaphor.notes}</p>
+                      <div class="edit-field">
+                          <textarea
+                              class="notes-input"
+                              placeholder="Notes (optional)"
+                              .value=${state.editNotes}
+                              ${listen('input', (event) => {
+                                  updateState({
+                                      editNotes: (event.target as HTMLTextAreaElement).value,
+                                  });
+                              })}
+                          ></textarea>
+                      </div>
+                      ${state.editCollisionWarning
+                          ? html`
+                                <div class="collision-warning">
+                                    <p class="warning-heading">
+                                        ${state.editCollisionWarning.type === 'exact-duplicate'
+                                            ? 'You already have this one.'
+                                            : "You've blended these two before."}
+                                    </p>
+                                    <p class="warning-detail">
+                                        "${state.editCollisionWarning.matchedMalaphor.text}" — added
+                                        ${formatDate(
+                                            state.editCollisionWarning.matchedMalaphor.createdAt,
+                                        )}
+                                    </p>
+                                    <div class="warning-actions">
+                                        <button
+                                            type="button"
+                                            ${listen('click', () => {
+                                                if (!state.editCollisionWarning) {
+                                                    return;
+                                                }
+                                                router.setRoute({
+                                                    paths: malaphorDetailRoute(
+                                                        state.editCollisionWarning.matchedMalaphor
+                                                            .id,
+                                                    ),
+                                                });
+                                            })}
+                                        >
+                                            View it
+                                        </button>
+                                        <button
+                                            type="button"
+                                            ${listen('click', performSaveMalaphorEdit)}
+                                        >
+                                            Save anyway
+                                        </button>
+                                    </div>
+                                </div>
+                            `
+                          : html`
+                                <div class="edit-actions">
+                                    <button
+                                        type="button"
+                                        ?disabled=${!state.editText.trim()}
+                                        ${listen('click', attemptSaveMalaphorEdit)}
+                                    >
+                                        Save
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="text-button"
+                                        ${listen('click', () => {
+                                            return updateState({
+                                                editingMalaphor: false,
+                                            });
+                                        })}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            `}
                   `
-                : ''}
+                : malaphor.notes
+                  ? html`
+                        <p class="notes">${malaphor.notes}</p>
+                    `
+                  : ''}
             <p class="dates">
                 Created ${formatDate(malaphor.createdAt)}
                 ${malaphor.updatedAt === malaphor.createdAt
@@ -370,40 +634,47 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
                           · Updated ${formatDate(malaphor.updatedAt)}
                       `}
             </p>
-            <div class="actions">
-                ${state.confirmingDelete
-                    ? html`
-                          <button
-                              type="button"
-                              class="confirm-delete"
-                              ${listen('click', deleteMalaphor)}
-                          >
-                              Yes, delete it
-                          </button>
-                          <button
-                              type="button"
-                              ${listen('click', () => {
-                                  return updateState({
-                                      confirmingDelete: false,
-                                  });
-                              })}
-                          >
-                              Cancel
-                          </button>
-                      `
-                    : html`
-                          <button
-                              type="button"
-                              ${listen('click', () => {
-                                  return updateState({
-                                      confirmingDelete: true,
-                                  });
-                              })}
-                          >
-                              Delete
-                          </button>
-                      `}
-            </div>
+            ${state.editingMalaphor
+                ? ''
+                : html`
+                      <div class="actions">
+                          ${state.confirmingDelete
+                              ? html`
+                                    <button
+                                        type="button"
+                                        class="confirm-delete"
+                                        ${listen('click', deleteMalaphor)}
+                                    >
+                                        Yes, delete it
+                                    </button>
+                                    <button
+                                        type="button"
+                                        ${listen('click', () => {
+                                            return updateState({
+                                                confirmingDelete: false,
+                                            });
+                                        })}
+                                    >
+                                        Cancel
+                                    </button>
+                                `
+                              : html`
+                                    <button type="button" ${listen('click', startEditingMalaphor)}>
+                                        Edit
+                                    </button>
+                                    <button
+                                        type="button"
+                                        ${listen('click', () => {
+                                            return updateState({
+                                                confirmingDelete: true,
+                                            });
+                                        })}
+                                    >
+                                        Delete
+                                    </button>
+                                `}
+                      </div>
+                  `}
         `;
     },
 });
