@@ -21,6 +21,30 @@ import {SettingsPage} from './pages/settings-page.element.js';
 /** Must run before any component's `state()` reads storage -- see migrateStorage's own comment. */
 migrateStorage(globalThis.localStorage, storage.storeName);
 
+/**
+ * The browser's own back/forward scroll restoration only knows about the document's scroll
+ * position, but this app scrolls inside `<main>` instead -- left on `'auto'`, it still fires and
+ * fights with the manual restore below, clamping `<main>`'s scrollTop to whatever the document (not
+ * `<main>`) had at some earlier point. Opting out leaves scroll restoration entirely to the
+ * `scrollPositionsBySegment` logic in `VirApp.init`.
+ */
+if ('scrollRestoration' in globalThis.history) {
+    globalThis.history.scrollRestoration = 'manual';
+}
+
+/**
+ * `<main>` is a single persistent element that `renderPage` swaps the _contents_ of on every
+ * navigation, so its `scrollTop` doesn't reset on its own -- but it doesn't correctly track "where
+ * you were on the Codex" either, since scrolling into a malaphor's detail view (which is short) and
+ * back leaves `<main>` whatever short-page scrollTop it last had. Remembered per top-level segment
+ * so leaving and returning to a list restores its scroll position.
+ */
+const scrollPositionsBySegment = new Map<string, number>();
+
+function scrollKeyForPaths(paths: CodexPaths): string {
+    return paths[0] ?? '';
+}
+
 function renderPage(paths: CodexPaths) {
     const [
         topLevelSegment,
@@ -102,10 +126,49 @@ export const VirApp = defineElement()({
             storedDataIsCorrupt,
         };
     },
-    init({updateState}) {
+    init({updateState, host}) {
+        /**
+         * `scroll` doesn't bubble, but a capture-phase listener on an ancestor still sees it on the
+         * way down to `<main>`, so this works without needing to re-query `<main>` (which doesn't
+         * exist in the DOM yet at `init()` time -- it's part of the first render).
+         */
+        host.shadowRoot.addEventListener(
+            'scroll',
+            (event) => {
+                if (event.target instanceof HTMLElement && event.target.tagName === 'MAIN') {
+                    scrollPositionsBySegment.set(
+                        scrollKeyForPaths(router.readCurrentRoute().paths),
+                        event.target.scrollTop,
+                    );
+                }
+            },
+            {
+                capture: true,
+            },
+        );
+
         const removeRouteListener = router.listen(true, (route) => {
             updateState({
                 route,
+            });
+            /**
+             * `host.updateComplete` only covers vir-app's own render pass -- it patches in a new
+             * page _tag_ (e.g. `<codex-page>`), but that child custom element upgrades and runs its
+             * own first Lit render asynchronously after that, so `<main>` has no scrollable content
+             * yet at this point and would clamp `scrollTop` straight back to 0. A
+             * `requestAnimationFrame` after `updateComplete` waits for that: microtasks (including
+             * the child's own update cycle) always flush before the next frame.
+             */
+            void host.updateComplete.then(() => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        const mainElement = host.shadowRoot.querySelector('main');
+                        if (mainElement) {
+                            mainElement.scrollTop =
+                                scrollPositionsBySegment.get(scrollKeyForPaths(route.paths)) ?? 0;
+                        }
+                    });
+                });
             });
         });
         updateState({
@@ -124,16 +187,6 @@ export const VirApp = defineElement()({
         const onNewIdiomScreen = topLevelSegment === 'idioms' && secondSegment === 'new';
         const showFab =
             (topLevelSegment === '' || topLevelSegment === 'idioms') && !onNewIdiomScreen;
-        /**
-         * Only the three tab screens show the persistent bottom nav — none of the design doc's
-         * mockups for compose or detail views include it, and a fixed nav bar would compete for
-         * space with the on-screen keyboard during compose anyway.
-         */
-        const showBottomNav =
-            (topLevelSegment === '' ||
-                topLevelSegment === 'idioms' ||
-                topLevelSegment === 'settings') &&
-            !onNewIdiomScreen;
 
         return html`
             ${state.storedDataIsCorrupt
@@ -161,13 +214,9 @@ export const VirApp = defineElement()({
                       ></${FabButton}>
                   `
                 : ''}
-            ${showBottomNav
-                ? html`
-                      <${BottomNav.assign({
-                          activeTopLevelSegment: topLevelSegment,
-                      })}></${BottomNav}>
-                  `
-                : ''}
+            <${BottomNav.assign({
+                activeTopLevelSegment: topLevelSegment,
+            })}></${BottomNav}>
         `;
     },
 });
