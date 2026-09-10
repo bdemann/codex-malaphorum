@@ -405,6 +405,7 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
                                       malaphorId: malaphor.id,
                                       malaphorText: malaphor.text,
                                       glossLines,
+                                      rating: malaphor.rating,
                                   })}></${MalaphorRow}>
                               `;
                           })}

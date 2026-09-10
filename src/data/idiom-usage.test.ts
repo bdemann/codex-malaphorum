@@ -11,6 +11,7 @@ function fakeMalaphor(overrides: Partial<Malaphor> & Pick<Malaphor, 'id' | 'text
     return {
         componentIdiomIds: [],
         notes: '',
+        rating: 0,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
         ...overrides,

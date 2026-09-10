@@ -225,6 +225,7 @@ export const ComposePage = defineElement()({
                 text,
                 componentIdiomIds: attachedIdiomIds,
                 notes: notes.trim(),
+                rating: 0,
                 createdAt: now,
                 updatedAt: now,
             };

@@ -19,13 +19,17 @@ export const malaphorShape = defineShape({
     /** Usually 2, sometimes more, may be empty for untagged imports. */
     componentIdiomIds: [uuidShape()],
     notes: '',
+    /** 0 (unrated) through 5. Backfilled by `migrateStorage` for pre-v2 data. */
+    rating: 0,
     createdAt: utcIsoStringShape(),
     updatedAt: utcIsoStringShape(),
 });
 
+/** Bump alongside a `migrateStorage` step for any change that breaks old stored data. */
+export const CURRENT_DATABASE_VERSION = 2;
+
 export const databaseShape = defineShape({
-    /** Bump on breaking schema change. */
-    version: 1,
+    version: CURRENT_DATABASE_VERSION,
     idioms: [idiomShape],
     malaphors: [malaphorShape],
 });

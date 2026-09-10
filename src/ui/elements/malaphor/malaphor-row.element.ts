@@ -1,11 +1,13 @@
 import {css, defineElement, html, listen} from 'element-vir';
 import {malaphorDetailRoute, router} from '../../../router.js';
 import {IdiomGloss, type GlossLine} from './idiom-gloss.element.js';
+import {StarRating} from './star-rating.element.js';
 
 export const MalaphorRow = defineElement<{
     malaphorId: string;
     malaphorText: string;
     glossLines: readonly GlossLine[];
+    rating: number;
 }>()({
     tagName: 'malaphor-row',
     styles: css`
@@ -25,6 +27,11 @@ export const MalaphorRow = defineElement<{
             font-size: var(--font-size-malaphor-row);
             color: var(--iron-gall);
             margin: 0 0 8px;
+        }
+
+        star-rating {
+            display: block;
+            margin-top: 6px;
         }
     `,
     render({inputs}) {
@@ -48,6 +55,14 @@ export const MalaphorRow = defineElement<{
                 <${IdiomGloss.assign({
                     lines: inputs.glossLines,
                 })}></${IdiomGloss}>
+                ${inputs.rating > 0
+                    ? html`
+                          <${StarRating.assign({
+                              rating: inputs.rating,
+                              readonly: true,
+                          })}></${StarRating}>
+                      `
+                    : ''}
             </a>
         `;
     },

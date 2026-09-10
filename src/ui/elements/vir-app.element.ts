@@ -1,4 +1,5 @@
 import {css, defineElement, html, listen} from 'element-vir';
+import {migrateStorage} from '../../data/migrate-storage.js';
 import {storage} from '../../data/storage.js';
 import {
     type CodexPaths,
@@ -16,6 +17,9 @@ import {IdiomDetailPage} from './pages/idiom-detail-page.element.js';
 import {MalaphorDetailPage} from './pages/malaphor-detail-page.element.js';
 import {NewIdiomPage} from './pages/new-idiom-page.element.js';
 import {SettingsPage} from './pages/settings-page.element.js';
+
+/** Must run before any component's `state()` reads storage -- see migrateStorage's own comment. */
+migrateStorage(globalThis.localStorage, storage.storeName);
 
 function renderPage(paths: CodexPaths) {
     const [

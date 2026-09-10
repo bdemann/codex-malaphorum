@@ -8,6 +8,7 @@ import {
 } from 'date-vir';
 import {css, defineElement, html, listen} from 'element-vir';
 import {checkValidShape} from 'object-shape-tester';
+import {migrateDatabaseIfNeeded} from '../../../data/migrate-storage.js';
 import {normalize} from '../../../data/normalize.js';
 import type {CodexDatabase, CodexSettings, Idiom} from '../../../data/shapes.js';
 import {databaseShape, settingsShape} from '../../../data/shapes.js';
@@ -258,7 +259,7 @@ export const SettingsPage = defineElement()({
 
             let parsedJson: unknown;
             try {
-                parsedJson = JSON.parse(await file.text());
+                parsedJson = migrateDatabaseIfNeeded(JSON.parse(await file.text()));
             } catch {
                 updateState({
                     jsonImportError: "That file isn't a Codex Malaphorum export.",
@@ -373,6 +374,7 @@ export const SettingsPage = defineElement()({
                         text: line.text,
                         componentIdiomIds: [],
                         notes: '',
+                        rating: 0,
                         createdAt: now,
                         updatedAt: now,
                     };

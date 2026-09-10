@@ -9,11 +9,21 @@ import {codexRoute, router} from '../../../router.js';
 import {IdiomChip} from '../malaphor/idiom-chip.element.js';
 import {IdiomGloss, type GlossLine} from '../malaphor/idiom-gloss.element.js';
 import {IdiomTypeahead} from '../malaphor/idiom-typeahead.element.js';
+import {StarRating} from '../malaphor/star-rating.element.js';
 import {formControlFontFix} from '../shared-styles.js';
 
 function formatDate(isoString: string): string {
     return toFormattedString(createFullDateInUserTimezone(isoString), 'd MMMM yyyy');
 }
+
+/** 0 (unrated) deliberately has no caption -- no stars means no judgment passed yet. */
+const RATING_CAPTIONS: Readonly<Record<number, string>> = {
+    1: 'Maybe cut this one',
+    2: 'Passable',
+    3: 'Good',
+    4: 'Clever',
+    5: 'Tickles the fancy bone',
+};
 
 export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
     tagName: 'malaphor-detail-page',
@@ -38,6 +48,19 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
             line-height: 0.9;
             padding-right: 8px;
             color: var(--minium);
+        }
+
+        .rating-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0 0 20px;
+        }
+
+        .rating-caption {
+            font-size: var(--font-size-gloss);
+            color: var(--iron-faded);
+            font-style: italic;
         }
 
         .notes {
@@ -179,6 +202,23 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
             });
         }
 
+        function setRating(rating: number) {
+            if (!malaphor) {
+                return;
+            }
+            const updated: Malaphor = {
+                ...malaphor,
+                rating,
+                updatedAt: getNowInIsoString(),
+            };
+            storage.set.codex({
+                ...database,
+                malaphors: database.malaphors.map((entry) => {
+                    return entry.id === updated.id ? updated : entry;
+                }),
+            });
+        }
+
         function setComponentIds(componentIdiomIds: Uuid[]) {
             if (!malaphor) {
                 return;
@@ -198,6 +238,18 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
 
         return html`
             <p class="malaphor-text">${malaphor.text}</p>
+            <div class="rating-row">
+                <${StarRating.assign({
+                    rating: malaphor.rating,
+                })}
+                    ${listen(StarRating.events.rate, (event) => setRating(event.detail))}
+                ></${StarRating}>
+                ${RATING_CAPTIONS[malaphor.rating]
+                    ? html`
+                          <span class="rating-caption">${RATING_CAPTIONS[malaphor.rating]}</span>
+                      `
+                    : ''}
+            </div>
             ${state.editingComponents
                 ? html`
                       <h2 class="section-heading">Built from</h2>

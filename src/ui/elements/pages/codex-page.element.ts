@@ -9,7 +9,7 @@ import type {GlossLine} from '../malaphor/idiom-gloss.element.js';
 import {MalaphorRow} from '../malaphor/malaphor-row.element.js';
 import {formControlFontFix} from '../shared-styles.js';
 
-type SortMode = 'newest' | 'alphabetical';
+type SortMode = 'newest' | 'alphabetical' | 'topRated';
 
 /**
  * `CodexPage` is torn down and rebuilt every time the shell swaps to a different top-level route
@@ -28,6 +28,8 @@ function sortMalaphors(malaphors: readonly Malaphor[], sortMode: SortMode): Mala
     const sorted = [...malaphors];
     if (sortMode === 'alphabetical') {
         sorted.sort((a, b) => normalize(a.text).localeCompare(normalize(b.text)));
+    } else if (sortMode === 'topRated') {
+        sorted.sort((a, b) => b.rating - a.rating || b.createdAt.localeCompare(a.createdAt));
     } else {
         sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
@@ -208,6 +210,16 @@ export const CodexPage = defineElement()({
                         >
                             A–Z
                         </button>
+                        <button
+                            class=${sortMode === 'topRated' ? 'active' : ''}
+                            ${listen('click', () => {
+                                return updateState({
+                                    sortMode: 'topRated',
+                                });
+                            })}
+                        >
+                            Top rated
+                        </button>
                     </div>
                 </div>
             </div>
@@ -237,6 +249,7 @@ export const CodexPage = defineElement()({
                                 malaphorId: malaphor.id,
                                 malaphorText: malaphor.text,
                                 glossLines,
+                                rating: malaphor.rating,
                             })}></${MalaphorRow}>
                         `;
                     })}
