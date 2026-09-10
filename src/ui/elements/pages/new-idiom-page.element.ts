@@ -2,18 +2,12 @@ import {createUuidV4} from '@augment-vir/common';
 import {getNowInIsoString} from 'date-vir';
 import {css, defineElement, html, listen} from 'element-vir';
 import {normalize} from '../../../data/normalize.js';
+import {parseAliases} from '../../../data/parse-aliases.js';
 import type {CodexDatabase, Idiom} from '../../../data/shapes.js';
 import {databaseShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
 import {glossaryRoute, idiomDetailRoute, router} from '../../../router.js';
 import {formControlFontFix} from '../shared-styles.js';
-
-function parseAliases(rawAliases: string): string[] {
-    return rawAliases
-        .split(',')
-        .map((alias) => alias.trim())
-        .filter((alias) => alias.length > 0);
-}
 
 export const NewIdiomPage = defineElement()({
     tagName: 'new-idiom-page',

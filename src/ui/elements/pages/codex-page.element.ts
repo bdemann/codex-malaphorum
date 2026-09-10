@@ -11,6 +11,15 @@ import {formControlFontFix} from '../shared-styles.js';
 
 type SortMode = 'newest' | 'alphabetical';
 
+/**
+ * `CodexPage` is torn down and rebuilt every time the shell swaps to a different top-level route
+ * (`vir-app.element.ts` picks a page by tag name, and Lit doesn't preserve state across a tag
+ * swap), so a plain state field for this would silently reset the filter on every trip to another
+ * tab or a malaphor's detail page. Module-level so it survives remounts for the life of the tab; a
+ * full reload resetting it (a fresh session) is fine.
+ */
+let lastUntaggedFilterPreference = false;
+
 function isUntagged(malaphor: Malaphor): boolean {
     return malaphor.componentIdiomIds.length === 0;
 }
@@ -110,8 +119,13 @@ export const CodexPage = defineElement()({
             database: storage.get.codex() ?? databaseShape.default,
             searchQuery: '',
             sortMode: 'newest',
-            /** Lands filtered when arriving from a Keep import via `/?filter=untagged` (§9). */
-            untaggedOnly: Boolean(router.readCurrentRoute().search?.filter?.includes('untagged')),
+            /**
+             * Lands filtered when arriving from a Keep import via `/?filter=untagged` (§9), or when
+             * the filter was already on before navigating away and back.
+             */
+            untaggedOnly:
+                Boolean(router.readCurrentRoute().search?.filter?.includes('untagged')) ||
+                lastUntaggedFilterPreference,
             removeStorageListener: undefined,
         };
     },
@@ -165,6 +179,7 @@ export const CodexPage = defineElement()({
                     <button
                         class="untagged-chip ${untaggedOnly ? 'active' : ''}"
                         ${listen('click', () => {
+                            lastUntaggedFilterPreference = !untaggedOnly;
                             return updateState({
                                 untaggedOnly: !untaggedOnly,
                             });
