@@ -194,8 +194,10 @@ export const SettingsPage = defineElement()({
     state(): {
         database: CodexDatabase;
         settings: CodexSettings;
+        lastExportedAt: string | undefined;
         removeStorageListener: (() => void) | undefined;
         removeSettingsListener: (() => void) | undefined;
+        removeLastExportedAtListener: (() => void) | undefined;
         jsonImportError: string | undefined;
         jsonImportSummary: JsonImportSummary | undefined;
         replaceConfirmText: string;
@@ -208,8 +210,10 @@ export const SettingsPage = defineElement()({
         return {
             database: storage.get.codex() ?? databaseShape.default,
             settings: storage.get.settings() ?? settingsShape.default,
+            lastExportedAt: storage.get.lastExportedAt(),
             removeStorageListener: undefined,
             removeSettingsListener: undefined,
+            removeLastExportedAtListener: undefined,
             jsonImportError: undefined,
             jsonImportSummary: undefined,
             replaceConfirmText: '',
@@ -231,18 +235,24 @@ export const SettingsPage = defineElement()({
                 settings: value ?? settingsShape.default,
             });
         });
+        const removeLastExportedAtListener = storage.listen.lastExportedAt((value) => {
+            updateState({
+                lastExportedAt: value,
+            });
+        });
         updateState({
             removeStorageListener,
             removeSettingsListener,
+            removeLastExportedAtListener,
         });
     },
     cleanup({state}) {
         state.removeStorageListener?.();
         state.removeSettingsListener?.();
+        state.removeLastExportedAtListener?.();
     },
     render({state, updateState}) {
-        const {database} = state;
-        const lastExportedAt = storage.get.lastExportedAt();
+        const {database, lastExportedAt} = state;
 
         function handleExport() {
             downloadJson(database);
