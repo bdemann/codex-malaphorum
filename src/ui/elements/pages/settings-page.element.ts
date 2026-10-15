@@ -450,6 +450,8 @@ export const SettingsPage = defineElement()({
                         id: createUuidV4(),
                         text: line.text,
                         aliases: [],
+                        tags: [],
+                        sourceUrl: '',
                         notes: '',
                         createdAt: now,
                         updatedAt: now,

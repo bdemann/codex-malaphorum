@@ -6,6 +6,8 @@ import type {Idiom, Malaphor} from './shapes.js';
 function fakeIdiom(overrides: Partial<Idiom> & Pick<Idiom, 'id' | 'text'>): Idiom {
     return {
         aliases: [],
+        tags: [],
+        sourceUrl: '',
         notes: '',
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',

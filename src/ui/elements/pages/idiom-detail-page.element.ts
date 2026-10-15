@@ -4,10 +4,13 @@ import {normalize} from '../../../data/normalize.js';
 import {parseAliases} from '../../../data/parse-aliases.js';
 import type {CodexDatabase, Idiom} from '../../../data/shapes.js';
 import {databaseShape} from '../../../data/shapes.js';
+import {describeSourceUrl, parseSourceUrl} from '../../../data/source-url.js';
 import {storage} from '../../../data/storage.js';
+import {collectTags, parseTags} from '../../../data/tags.js';
 import {glossaryRoute, router} from '../../../router.js';
 import {type GlossLine} from '../malaphor/idiom-gloss.element.js';
 import {MalaphorRow} from '../malaphor/malaphor-row.element.js';
+import {TagInput} from '../malaphor/tag-input.element.js';
 import {formControlFontFix} from '../shared-styles.js';
 
 export const IdiomDetailPage = defineElement<{idiomId: string}>()({
@@ -30,6 +33,23 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
             font-size: var(--font-size-gloss);
             color: var(--iron-faded);
             margin: 0 0 12px;
+        }
+
+        .tags {
+            font-size: var(--font-size-gloss);
+            color: var(--terre-verte);
+            font-feature-settings: 'smcp' 1;
+            margin: 0 0 12px;
+        }
+
+        .source {
+            font-size: var(--font-size-gloss);
+            color: var(--iron-faded);
+            margin: 0 0 12px;
+        }
+
+        .source a {
+            color: var(--terre-verte);
         }
 
         .notes {
@@ -179,6 +199,8 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
         editingIdiom: boolean;
         editText: string;
         editAliases: string;
+        editTags: string;
+        editSourceUrl: string;
         editNotes: string;
         editDuplicateWarning: Idiom | undefined;
     } {
@@ -189,6 +211,8 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
             editingIdiom: false,
             editText: '',
             editAliases: '',
+            editTags: '',
+            editSourceUrl: '',
             editNotes: '',
             editDuplicateWarning: undefined,
         };
@@ -233,6 +257,8 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
             });
         }
 
+        const editSourceUrlIsValid = parseSourceUrl(state.editSourceUrl) !== undefined;
+
         function startEditing() {
             if (!idiom) {
                 return;
@@ -241,6 +267,8 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
                 editingIdiom: true,
                 editText: idiom.text,
                 editAliases: idiom.aliases.join(', '),
+                editTags: idiom.tags.join(', '),
+                editSourceUrl: idiom.sourceUrl,
                 editNotes: idiom.notes,
                 editDuplicateWarning: undefined,
             });
@@ -258,6 +286,8 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
                 ...idiom,
                 text,
                 aliases: parseAliases(state.editAliases),
+                tags: parseTags(state.editTags),
+                sourceUrl: parseSourceUrl(state.editSourceUrl) ?? idiom.sourceUrl,
                 notes: state.editNotes.trim(),
                 updatedAt: getNowInIsoString(),
             };
@@ -322,6 +352,38 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
                           />
                       </div>
                       <div class="edit-field">
+                          <label for="edit-idiom-tags">Origin tags (comma-separated)</label>
+                          <${TagInput.assign({
+                              inputId: 'edit-idiom-tags',
+                              value: state.editTags,
+                              suggestions: collectTags(database.idioms).map((entry) => entry.tag),
+                          })}
+                              ${listen(TagInput.events.valueChange, (event) => {
+                                  updateState({
+                                      editTags: event.detail,
+                                  });
+                              })}
+                          ></${TagInput}>
+                      </div>
+                      <div class="edit-field">
+                          <label for="edit-idiom-source">
+                              Source link
+                              ${editSourceUrlIsValid ? '' : "— that doesn't look like a web link"}
+                          </label>
+                          <input
+                              id="edit-idiom-source"
+                              type="text"
+                              inputmode="url"
+                              placeholder="https://…"
+                              .value=${state.editSourceUrl}
+                              ${listen('input', (event) => {
+                                  updateState({
+                                      editSourceUrl: (event.target as HTMLInputElement).value,
+                                  });
+                              })}
+                          />
+                      </div>
+                      <div class="edit-field">
                           <label for="edit-idiom-notes">Notes</label>
                           <textarea
                               id="edit-idiom-notes"
@@ -351,7 +413,7 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
                                 <div class="edit-actions">
                                     <button
                                         type="button"
-                                        ?disabled=${!state.editText.trim()}
+                                        ?disabled=${!state.editText.trim() || !editSourceUrlIsValid}
                                         ${listen('click', attemptSaveEdit)}
                                     >
                                         Save
@@ -375,6 +437,25 @@ export const IdiomDetailPage = defineElement<{idiomId: string}>()({
                       ${idiom.aliases.length
                           ? html`
                                 <p class="aliases">Also: ${idiom.aliases.join(', ')}</p>
+                            `
+                          : ''}
+                      ${idiom.tags.length
+                          ? html`
+                                <p class="tags">${idiom.tags.join(' · ')}</p>
+                            `
+                          : ''}
+                      ${idiom.sourceUrl
+                          ? html`
+                                <p class="source">
+                                    Source:
+                                    <a
+                                        href=${idiom.sourceUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        ${describeSourceUrl(idiom.sourceUrl)}
+                                    </a>
+                                </p>
                             `
                           : ''}
                       ${idiom.notes

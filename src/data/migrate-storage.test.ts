@@ -44,7 +44,7 @@ describe(migrateStorage.name, () => {
     it('does nothing when already at the current version', () => {
         const stored = JSON.stringify({
             codex: {
-                version: 2,
+                version: 4,
                 idioms: [],
                 malaphors: [
                     {
@@ -84,7 +84,7 @@ describe(migrateStorage.name, () => {
         migrateStorage(storage, storeName);
 
         const migrated = JSON.parse(storage.read() ?? '');
-        assert.strictEquals(migrated.codex.version, 2);
+        assert.strictEquals(migrated.codex.version, 4);
         assert.deepEquals(
             migrated.codex.malaphors.map((malaphor: {rating: number}) => malaphor.rating),
             [
@@ -116,6 +116,108 @@ describe(migrateStorage.name, () => {
         assert.strictEquals(migrated.codex.malaphors[0].rating, 4);
     });
 
+    it('backfills tags: [] onto every idiom when upgrading from v2', () => {
+        const storage = fakeStorage({
+            [storeName]: JSON.stringify({
+                codex: {
+                    version: 2,
+                    idioms: [
+                        {
+                            id: 'a',
+                            text: 'one',
+                        },
+                        {
+                            id: 'b',
+                            text: 'two',
+                            tags: ['sports'],
+                        },
+                    ],
+                    malaphors: [
+                        {
+                            id: 'm',
+                            rating: 2,
+                        },
+                    ],
+                },
+            }),
+        });
+
+        migrateStorage(storage, storeName);
+
+        const migrated = JSON.parse(storage.read() ?? '');
+        assert.strictEquals(migrated.codex.version, 4);
+        assert.deepEquals(
+            migrated.codex.idioms.map((idiom: {tags: string[]}) => idiom.tags),
+            [
+                [],
+                ['sports'],
+            ],
+        );
+        assert.strictEquals(migrated.codex.malaphors[0].rating, 2);
+    });
+
+    it('backfills sourceUrl onto every idiom when upgrading from v3, keeping existing ones', () => {
+        const storage = fakeStorage({
+            [storeName]: JSON.stringify({
+                codex: {
+                    version: 3,
+                    idioms: [
+                        {
+                            id: 'a',
+                            tags: ['sports'],
+                        },
+                        {
+                            id: 'b',
+                            tags: [],
+                            sourceUrl: 'https://example.com/b',
+                        },
+                    ],
+                    malaphors: [],
+                },
+            }),
+        });
+
+        migrateStorage(storage, storeName);
+
+        const migrated = JSON.parse(storage.read() ?? '');
+        assert.strictEquals(migrated.codex.version, 4);
+        assert.deepEquals(
+            migrated.codex.idioms.map((idiom: {sourceUrl: string}) => idiom.sourceUrl),
+            [
+                '',
+                'https://example.com/b',
+            ],
+        );
+        assert.deepEquals(migrated.codex.idioms[0].tags, ['sports']);
+    });
+
+    it('applies every backfill when upgrading from v1', () => {
+        const storage = fakeStorage({
+            [storeName]: JSON.stringify({
+                codex: {
+                    version: 1,
+                    idioms: [
+                        {
+                            id: 'a',
+                        },
+                    ],
+                    malaphors: [
+                        {
+                            id: 'm',
+                        },
+                    ],
+                },
+            }),
+        });
+
+        migrateStorage(storage, storeName);
+
+        const migrated = JSON.parse(storage.read() ?? '');
+        assert.deepEquals(migrated.codex.idioms[0].tags, []);
+        assert.strictEquals(migrated.codex.idioms[0].sourceUrl, '');
+        assert.strictEquals(migrated.codex.malaphors[0].rating, 0);
+    });
+
     it('does nothing when the stored value has no codex key', () => {
         const stored = JSON.stringify({
             settings: {},
@@ -127,7 +229,7 @@ describe(migrateStorage.name, () => {
         assert.strictEquals(storage.read(), stored);
     });
 
-    it('does nothing when malaphors is missing or malformed', () => {
+    it('does nothing when idioms or malaphors is missing or malformed', () => {
         const stored = JSON.stringify({
             codex: {
                 version: 1,

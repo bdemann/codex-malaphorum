@@ -524,6 +524,8 @@ export const MalaphorDetailPage = defineElement<{malaphorId: string}>()({
                                   id: createUuidV4(),
                                   text: event.detail,
                                   aliases: [],
+                                  tags: [],
+                                  sourceUrl: '',
                                   notes: '',
                                   createdAt: now,
                                   updatedAt: now,

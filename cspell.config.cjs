@@ -20,6 +20,7 @@ module.exports = {
         'dedup',
         'blendable',
         'tappable',
+        'inputmode',
         'autogrow',
         // OpenType feature tags used in font-feature-settings.
         'onum',

@@ -9,6 +9,16 @@ export const idiomShape = defineShape({
     aliases: [''],
     /** Meaning, origin, whatever. */
     notes: '',
+    /**
+     * Free-form origin tags ("sports", "nautical", ...), stored lowercase via `parseTags`.
+     * Backfilled by `migrateStorage` for pre-v3 data.
+     */
+    tags: [''],
+    /**
+     * Link to a reference for the idiom's meaning and/or origin (dictionary entry, primary text).
+     * Empty when none. Backfilled by `migrateStorage` for pre-v4 data.
+     */
+    sourceUrl: '',
     createdAt: utcIsoStringShape(),
     updatedAt: utcIsoStringShape(),
 });
@@ -26,7 +36,7 @@ export const malaphorShape = defineShape({
 });
 
 /** Bump alongside a `migrateStorage` step for any change that breaks old stored data. */
-export const CURRENT_DATABASE_VERSION = 2;
+export const CURRENT_DATABASE_VERSION = 4;
 
 export const databaseShape = defineShape({
     version: CURRENT_DATABASE_VERSION,

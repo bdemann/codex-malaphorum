@@ -4,6 +4,7 @@ import {buildSearchIndex, searchIdioms} from '../../../data/search-index.js';
 import type {CodexDatabase, CodexSettings, Idiom} from '../../../data/shapes.js';
 import {databaseShape, settingsShape} from '../../../data/shapes.js';
 import {storage} from '../../../data/storage.js';
+import {collectTags, filterIdiomsByTags} from '../../../data/tags.js';
 import {idiomDetailRoute, router} from '../../../router.js';
 import {IdiomRow} from '../malaphor/idiom-row.element.js';
 import {formControlFontFix} from '../shared-styles.js';
@@ -35,6 +36,13 @@ function pickRandomPair(idioms: readonly Idiom[]):
 }
 
 type SortMode = 'alphabetical' | 'newest' | 'most-used';
+
+/**
+ * `GlossaryPage` is torn down and rebuilt whenever the shell swaps routes (same situation as
+ * `CodexPage`'s untagged filter), so the selected origin tags live at module level to survive a
+ * trip into an idiom's detail page and back. A full reload resetting them is fine.
+ */
+let lastSelectedTags: readonly string[] = [];
 
 function sortIdioms(
     idioms: readonly Idiom[],
@@ -103,6 +111,35 @@ export const GlossaryPage = defineElement()({
             text-decoration: underline;
         }
 
+        .tag-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .tag-filter button {
+            border: 1px solid color-mix(in srgb, var(--terre-verte) 50%, transparent);
+            border-radius: var(--border-radius);
+            padding: 4px 10px;
+            background: none;
+            font-family: var(--font-serif);
+            font-size: var(--font-size-gloss);
+            color: var(--terre-verte);
+            cursor: pointer;
+        }
+
+        .tag-filter button.active {
+            background-color: var(--terre-verte);
+            border-color: var(--terre-verte);
+            color: var(--vellum);
+        }
+
+        .tag-filter button.clear {
+            border-color: transparent;
+            color: var(--iron-faded);
+        }
+
         .empty-state {
             padding: 40px 20px;
             color: var(--iron-faded);
@@ -158,6 +195,7 @@ export const GlossaryPage = defineElement()({
         removeSettingsListener: (() => void) | undefined;
         searchQuery: string;
         sortMode: SortMode;
+        selectedTags: readonly string[];
         randomPair:
             | readonly [
                   Idiom,
@@ -172,6 +210,7 @@ export const GlossaryPage = defineElement()({
             removeSettingsListener: undefined,
             searchQuery: '',
             sortMode: 'alphabetical',
+            selectedTags: lastSelectedTags,
             randomPair: undefined,
         };
     },
@@ -206,6 +245,26 @@ export const GlossaryPage = defineElement()({
             }
         }
 
+        const allTags = collectTags(database.idioms);
+        // Drop selections for tags that no longer exist (e.g. the last idiom carrying one lost it),
+        // so a stale filter can't silently hide the whole glossary.
+        const selectedTags = new Set(
+            state.selectedTags.filter((tag) => allTags.some((entry) => entry.tag === tag)),
+        );
+
+        function toggleTag(tag: string) {
+            const next = selectedTags.has(tag)
+                ? [...selectedTags].filter((entry) => entry !== tag)
+                : [
+                      ...selectedTags,
+                      tag,
+                  ];
+            lastSelectedTags = next;
+            updateState({
+                selectedTags: next,
+            });
+        }
+
         let idioms: Idiom[];
         if (trimmedQuery) {
             const index = buildSearchIndex(database.idioms, []);
@@ -213,6 +272,7 @@ export const GlossaryPage = defineElement()({
         } else {
             idioms = sortIdioms(database.idioms, usageCounts, sortMode);
         }
+        idioms = filterIdiomsByTags(idioms, selectedTags);
 
         return html`
             <div class="search-bar">
@@ -258,6 +318,42 @@ export const GlossaryPage = defineElement()({
                         Most used
                     </button>
                 </div>
+                ${allTags.length
+                    ? html`
+                          <div class="tag-filter">
+                              ${allTags.map(({tag, count}) => {
+                                  return html`
+                                      <button
+                                          type="button"
+                                          class=${selectedTags.has(tag) ? 'active' : ''}
+                                          aria-pressed=${selectedTags.has(tag)}
+                                          ${listen('click', () => {
+                                              toggleTag(tag);
+                                          })}
+                                      >
+                                          ${tag} (${count})
+                                      </button>
+                                  `;
+                              })}
+                              ${selectedTags.size
+                                  ? html`
+                                        <button
+                                            type="button"
+                                            class="clear"
+                                            ${listen('click', () => {
+                                                lastSelectedTags = [];
+                                                updateState({
+                                                    selectedTags: [],
+                                                });
+                                            })}
+                                        >
+                                            Clear
+                                        </button>
+                                    `
+                                  : ''}
+                          </div>
+                      `
+                    : ''}
             </div>
             ${state.settings.showRandomPairButton && database.idioms.length >= 2
                 ? state.randomPair

@@ -2,42 +2,54 @@ import {CURRENT_DATABASE_VERSION} from './shapes.js';
 
 type JsonRecord = Record<string, unknown>;
 
+function isRecord(value: unknown): value is JsonRecord {
+    return typeof value === 'object' && value !== null;
+}
+
+/** Applies `backfill` to every record in `entries` that doesn't already have `key`. */
+function backfillField(entries: unknown[], key: string, backfill: unknown): unknown[] {
+    return entries.map((entry) => {
+        if (isRecord(entry) && !(key in entry)) {
+            return {
+                ...entry,
+                [key]: backfill,
+            };
+        }
+        return entry;
+    });
+}
+
 /**
- * One-off migration for pre-rating data (`databaseShape.version` 1): backfills `rating: 0` onto
- * every malaphor so the now-required field validates. Takes and returns a raw, not-yet-validated
- * value -- a failed shape validation on old data would otherwise look like data loss rather than a
- * schema upgrade, whether that data came from localStorage or an imported export file.
+ * Upgrades a raw, not-yet-validated database to `CURRENT_DATABASE_VERSION`, one version at a time:
+ *
+ * - V1 -> v2: backfills `rating: 0` onto every malaphor.
+ * - V2 -> v3: backfills `tags: []` onto every idiom.
+ *
+ * Operates on the raw value because a failed shape validation on old data would otherwise look like
+ * data loss rather than a schema upgrade, whether that data came from localStorage or an imported
+ * export file.
  */
 export function migrateDatabaseIfNeeded(database: unknown): unknown {
-    if (typeof database !== 'object' || database === null) {
+    if (!isRecord(database)) {
         return database;
     }
 
-    const databaseRecord = database as JsonRecord;
-    const version = databaseRecord.version;
-    const malaphors = databaseRecord.malaphors;
+    const version = database.version;
+    const {idioms, malaphors} = database;
     if (
         typeof version !== 'number' ||
         version >= CURRENT_DATABASE_VERSION ||
+        !Array.isArray(idioms) ||
         !Array.isArray(malaphors)
     ) {
         return database;
     }
 
-    const migratedMalaphors = malaphors.map((malaphor) => {
-        if (typeof malaphor === 'object' && malaphor !== null && !('rating' in malaphor)) {
-            return {
-                ...malaphor,
-                rating: 0,
-            };
-        }
-        return malaphor;
-    });
-
     return {
-        ...databaseRecord,
+        ...database,
         version: CURRENT_DATABASE_VERSION,
-        malaphors: migratedMalaphors,
+        idioms: backfillField(backfillField(idioms, 'tags', []), 'sourceUrl', ''),
+        malaphors: version < 2 ? backfillField(malaphors, 'rating', 0) : malaphors,
     };
 }
 
